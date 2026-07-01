@@ -5,17 +5,23 @@ const PREF_ID = '00000000-0000-0000-0000-000000000001'
 
 export const dynamic = 'force-dynamic'
 
+const DEFAULT_PREFS = {
+  regions: ['서울'],
+  budget_min: 30000,
+  budget_max: 60000,
+  property_types: ['sale', 'subscription'],
+  monthly_income: 0,
+  assets: 0,
+  is_newlywed: false,
+  is_first_buyer: false,
+  no_home_years: 0,
+  num_children: 0,
+}
+
 export async function GET() {
   const db = createServerClient()
   const { data } = await db.from('user_preferences').select('*').eq('id', PREF_ID).single()
-  return Response.json(data ?? {
-    regions: ['서울'],
-    budget_min: 30000,
-    budget_max: 60000,
-    property_types: ['sale', 'subscription'],
-    monthly_income: 0,
-    assets: 0,
-  })
+  return Response.json(data ?? DEFAULT_PREFS)
 }
 
 export async function POST(req: NextRequest) {
@@ -29,6 +35,10 @@ export async function POST(req: NextRequest) {
     property_types: body.property_types ?? ['sale', 'subscription'],
     monthly_income: Number(body.monthly_income) || 0,
     assets: Number(body.assets) || 0,
+    is_newlywed: Boolean(body.is_newlywed),
+    is_first_buyer: Boolean(body.is_first_buyer),
+    no_home_years: Number(body.no_home_years) || 0,
+    num_children: Number(body.num_children) || 0,
     updated_at: new Date().toISOString(),
   })
   if (error) return Response.json({ error: error.message }, { status: 500 })

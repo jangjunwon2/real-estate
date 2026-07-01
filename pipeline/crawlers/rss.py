@@ -4,8 +4,9 @@ from datetime import datetime
 from .base import RawArticle
 
 RSS_FEEDS = [
-    ('https://www.mk.co.kr/rss/30000001/', 'mk'),
+    ('https://www.mk.co.kr/rss/50200011/', 'mk'),       # MK 부동산 전용 섹션
     ('https://biz.chosun.com/site/data/rss/realestate.xml', 'chosun'),
+    ('https://www.hankyung.com/feed/estate', 'hankyung'),
 ]
 
 

@@ -21,17 +21,27 @@ interface Prefs {
   property_types: string[]
   monthly_income: number
   assets: number
+  is_newlywed: boolean
+  is_first_buyer: boolean
+  no_home_years: number
+  num_children: number
+}
+
+const DEFAULT_PREFS: Prefs = {
+  regions: ['서울'],
+  budget_min: 30000,
+  budget_max: 60000,
+  property_types: ['sale', 'subscription'],
+  monthly_income: 0,
+  assets: 0,
+  is_newlywed: false,
+  is_first_buyer: false,
+  no_home_years: 0,
+  num_children: 0,
 }
 
 export default function SettingsPage() {
-  const [prefs, setPrefs] = useState<Prefs>({
-    regions: ['서울'],
-    budget_min: 30000,
-    budget_max: 60000,
-    property_types: ['sale', 'subscription'],
-    monthly_income: 0,
-    assets: 0,
-  })
+  const [prefs, setPrefs] = useState<Prefs>(DEFAULT_PREFS)
   const [regionInput, setRegionInput] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
@@ -40,7 +50,7 @@ export default function SettingsPage() {
   useEffect(() => {
     fetch('/api/preferences')
       .then(r => r.json())
-      .then(data => { setPrefs(data); setLoading(false) })
+      .then(data => { setPrefs({ ...DEFAULT_PREFS, ...data }); setLoading(false) })
       .catch(() => setLoading(false))
   }, [])
 
@@ -75,6 +85,17 @@ export default function SettingsPage() {
     setTimeout(() => setSaved(false), 3000)
   }
 
+  // DSR 40% 기준 최대 대출 추정 (연소득 × 0.4 ÷ 12 × 300개월)
+  const maxLoan = prefs.monthly_income > 0
+    ? Math.round(prefs.monthly_income * 0.4 / 12 * 300)
+    : 0
+
+  // 신혼부부 생애최초 LTV 최대 80%
+  const eligibleLtv = prefs.is_newlywed && prefs.is_first_buyer ? 0.8 : 0.7
+  const ltvMax = prefs.budget_max > 0 ? Math.round(prefs.budget_max * eligibleLtv) : 0
+
+  const effectiveLoan = Math.min(maxLoan, ltvMax)
+
   if (loading) return <main className="max-w-xl mx-auto px-4 py-12 text-gray-400">불러오는 중...</main>
 
   return (
@@ -83,6 +104,82 @@ export default function SettingsPage() {
         <h1 className="text-xl font-bold text-gray-900">내 정보 설정</h1>
         <p className="text-sm text-gray-500 mt-1">설정한 정보를 바탕으로 맞춤 매물과 뉴스를 추천합니다.</p>
       </div>
+
+      {/* 내 상태 */}
+      <section className="space-y-4">
+        <h2 className="font-semibold text-gray-800">내 상태</h2>
+
+        <div className="grid grid-cols-2 gap-3">
+          <button
+            onClick={() => setPrefs(p => ({ ...p, is_newlywed: !p.is_newlywed }))}
+            className={`flex items-center gap-2 px-4 py-3 rounded-xl border text-sm font-medium transition-colors ${
+              prefs.is_newlywed
+                ? 'bg-indigo-600 text-white border-indigo-600'
+                : 'border-gray-200 text-gray-600 hover:border-gray-400'
+            }`}
+          >
+            <span>💍</span>
+            <div className="text-left">
+              <p>신혼부부</p>
+              <p className={`text-xs font-normal ${prefs.is_newlywed ? 'text-indigo-200' : 'text-gray-400'}`}>혼인 7년 이내</p>
+            </div>
+          </button>
+
+          <button
+            onClick={() => setPrefs(p => ({ ...p, is_first_buyer: !p.is_first_buyer }))}
+            className={`flex items-center gap-2 px-4 py-3 rounded-xl border text-sm font-medium transition-colors ${
+              prefs.is_first_buyer
+                ? 'bg-indigo-600 text-white border-indigo-600'
+                : 'border-gray-200 text-gray-600 hover:border-gray-400'
+            }`}
+          >
+            <span>🏠</span>
+            <div className="text-left">
+              <p>생애최초</p>
+              <p className={`text-xs font-normal ${prefs.is_first_buyer ? 'text-indigo-200' : 'text-gray-400'}`}>주택 미보유</p>
+            </div>
+          </button>
+        </div>
+
+        <div className="grid grid-cols-2 gap-4">
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">무주택 기간 (년)</label>
+            <input
+              type="number"
+              value={prefs.no_home_years || ''}
+              onChange={e => setPrefs(p => ({ ...p, no_home_years: Number(e.target.value) }))}
+              placeholder="예: 3"
+              min={0}
+              max={30}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400"
+            />
+          </div>
+          <div>
+            <label className="text-xs text-gray-500 mb-1 block">자녀 수</label>
+            <input
+              type="number"
+              value={prefs.num_children || ''}
+              onChange={e => setPrefs(p => ({ ...p, num_children: Number(e.target.value) }))}
+              placeholder="0"
+              min={0}
+              max={10}
+              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400"
+            />
+          </div>
+        </div>
+
+        {(prefs.is_newlywed || prefs.is_first_buyer) && (
+          <div className="rounded-xl bg-indigo-50 border border-indigo-100 px-4 py-3 text-sm text-indigo-800 space-y-1">
+            <p className="font-semibold">✓ 적용 가능한 우대 상품</p>
+            {prefs.is_newlywed && prefs.is_first_buyer && (
+              <p>· 신혼부부 생애최초 특별공급 (LTV 최대 80%)</p>
+            )}
+            {prefs.is_newlywed && <p>· 신혼희망타운, 신혼부부 전용 청약</p>}
+            {prefs.is_first_buyer && <p>· 생애최초 취득세 감면, 디딤돌 대출</p>}
+            {prefs.num_children >= 2 && <p>· 다자녀 가구 우선 배정</p>}
+          </div>
+        )}
+      </section>
 
       {/* 관심 지역 */}
       <section className="space-y-3">
@@ -200,11 +297,16 @@ export default function SettingsPage() {
             />
           </div>
         </div>
+
         {prefs.monthly_income > 0 && prefs.budget_max > 0 && (
-          <div className="rounded-lg bg-blue-50 px-4 py-3 text-sm text-blue-800 space-y-1">
-            <p className="font-medium">📊 생애최초 대출 가능 추정</p>
-            <p>DSR 40% 기준 최대 대출: 약 {Math.round(prefs.monthly_income * 0.4 / 12 * 300).toLocaleString()}만원</p>
-            <p>필요 자기자본: {Math.max(0, prefs.budget_max - Math.round(prefs.monthly_income * 0.4 / 12 * 300)).toLocaleString()}만원 이상</p>
+          <div className="rounded-xl bg-blue-50 border border-blue-100 px-4 py-3 text-sm text-blue-800 space-y-1.5">
+            <p className="font-semibold">📊 대출 가능 추정</p>
+            <p>DSR 40% 기준 최대 대출: 약 {maxLoan.toLocaleString()}만원</p>
+            <p>LTV {Math.round(eligibleLtv * 100)}% 기준 최대 대출: 약 {ltvMax.toLocaleString()}만원</p>
+            <p className="font-medium border-t border-blue-200 pt-1.5">
+              실질 한도: 약 {effectiveLoan.toLocaleString()}만원
+              {prefs.assets > 0 && ` (자기자본 ${Math.max(0, prefs.budget_max - effectiveLoan).toLocaleString()}만원 필요)`}
+            </p>
           </div>
         )}
       </section>
