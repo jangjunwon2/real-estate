@@ -2,6 +2,9 @@ import { createServerClient } from '@/lib/supabase'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import dynamic from 'next/dynamic'
+import EligibilityBadge from '@/components/properties/EligibilityBadge'
+import SubscriptionCountdown from '@/components/properties/SubscriptionCountdown'
+import LoanCalculator from '@/components/properties/LoanCalculator'
 
 const KakaoMap = dynamic(() => import('@/components/KakaoMap'), { ssr: false })
 
@@ -60,6 +63,7 @@ export default async function PropertyDetailPage({
             {typeLabel}
           </span>
         </div>
+        <EligibilityBadge propertyType={property.property_type} price={property.price} />
       </div>
 
       {/* 기본 정보 카드 */}
@@ -94,7 +98,12 @@ export default async function PropertyDetailPage({
       {property.property_type === 'subscription' &&
         (property.subscription_start || property.subscription_end) && (
           <div className="rounded-xl bg-green-50 border border-green-200 p-4 space-y-1">
-            <p className="text-sm font-semibold text-green-800">청약 일정</p>
+            <div className="flex items-center justify-between">
+              <p className="text-sm font-semibold text-green-800">청약 일정</p>
+              {property.subscription_end && (
+                <SubscriptionCountdown endDate={property.subscription_end} />
+              )}
+            </div>
             {property.subscription_start && (
               <p className="text-sm text-green-700">
                 접수 시작: {new Date(property.subscription_start).toLocaleDateString('ko-KR')}
@@ -120,6 +129,9 @@ export default async function PropertyDetailPage({
           )}
         </div>
       )}
+
+      {/* 대출 계산기 */}
+      {property.price && <LoanCalculator price={property.price} />}
 
       {/* AI 점수 */}
       {score && (

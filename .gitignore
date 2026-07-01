@@ -3,6 +3,7 @@
 .env.local
 .env.*.local
 pipeline/.env
+SECRETS.md
 
 # Node
 node_modules/
