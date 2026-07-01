@@ -16,7 +16,7 @@ async def score_properties(
         async with sem:
             try:
                 msg = await client.messages.create(
-                    model='claude-haiku-4-5', max_tokens=512,
+                    model='claude-haiku-4-5-20251001', max_tokens=512,
                     messages=[{'role': 'user', 'content':
                         f'부동산 매물 분석 후 JSON만 응답:\n'
                         f'매물: {json.dumps(prop, ensure_ascii=False)}\n'

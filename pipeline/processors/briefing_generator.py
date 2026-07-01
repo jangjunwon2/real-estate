@@ -19,7 +19,7 @@ async def generate_briefing(articles: list, anthropic_api_key: str) -> dict:
 signal 기준: buy=금리인하+규제완화+시장안정 동시, avoid=금리인상+규제강화+시장불안 동시, wait=그 외"""
 
     msg = await client.messages.create(
-        model='claude-haiku-4-5', max_tokens=512,
+        model='claude-haiku-4-5-20251001', max_tokens=512,
         messages=[{'role': 'user', 'content': prompt}],
     )
     result = json.loads(msg.content[0].text)
