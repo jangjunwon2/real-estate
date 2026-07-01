@@ -20,9 +20,7 @@ export default function PropertyCard({ property }: { property: Property }) {
 
   return (
     <a
-      href={property.source_url}
-      target="_blank"
-      rel="noopener noreferrer"
+      href={`/properties/${property.id}`}
       className="block rounded-xl border border-gray-200 p-5 hover:shadow-md hover:border-gray-300 transition-all"
     >
       {/* 헤더 */}
