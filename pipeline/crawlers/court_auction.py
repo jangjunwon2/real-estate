@@ -1,7 +1,12 @@
 from datetime import datetime
 from playwright.async_api import async_playwright
-from playwright_stealth import stealth_async
 from .base import RawArticle
+
+try:
+    from playwright_stealth import stealth_async
+    HAS_STEALTH = True
+except ImportError:
+    HAS_STEALTH = False
 
 
 async def fetch_court_auctions(config) -> list[RawArticle]:
@@ -9,7 +14,8 @@ async def fetch_court_auctions(config) -> list[RawArticle]:
     async with async_playwright() as pw:
         browser = await pw.chromium.launch(headless=True)
         page = await browser.new_page()
-        await stealth_async(page)
+        if HAS_STEALTH:
+            await stealth_async(page)
         try:
             await page.goto(
                 'https://www.courtauction.go.kr/RetrieveRealEstList.laf',

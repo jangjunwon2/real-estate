@@ -41,7 +41,7 @@ jobs:
           KAKAO_TEMPLATE_URGENT:   ${{ secrets.KAKAO_TEMPLATE_URGENT }}
           KAKAO_TEMPLATE_PROPERTY: ${{ secrets.KAKAO_TEMPLATE_PROPERTY }}
           KAKAO_REST_API_KEY:      ${{ secrets.KAKAO_REST_API_KEY }}
-          USER_EMAIL:              ${{ secrets.USER_EMAIL }}
+          USER_EMAIL:              ${{ secrets.NOTIFY_EMAIL }}
           USER_PHONE:              ${{ secrets.USER_PHONE }}
           USER_REGION:             ${{ secrets.USER_REGION }}
           USER_BUDGET_MIN:         ${{ secrets.USER_BUDGET_MIN }}
@@ -55,7 +55,7 @@ jobs:
         working-directory: pipeline
         env:
           RESEND_API_KEY:    ${{ secrets.RESEND_API_KEY }}
-          USER_EMAIL:        ${{ secrets.USER_EMAIL }}
+          USER_EMAIL:        ${{ secrets.NOTIFY_EMAIL }}
           GITHUB_RUN_ID:     ${{ github.run_id }}
           GITHUB_REPOSITORY: ${{ github.repository }}
         run: python notifiers/alert_failure.py
