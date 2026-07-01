@@ -21,6 +21,7 @@ async function getData() {
     db.from('articles')
       .select('id,title,url,source,category,importance,urgent,summary,published_at,created_at,status,regions')
       .eq('status', 'active')
+      .gte('importance', 5)
       .order('created_at', { ascending: false })
       .limit(20),
     db.from('properties')

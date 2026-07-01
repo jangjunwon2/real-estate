@@ -8,13 +8,18 @@ from crawlers.base import RawArticle, ClassifiedArticle
 logger = logging.getLogger(__name__)
 
 BATCH_SIZE = 10
-PROMPT = """다음 부동산 기사 목록을 분석하고 JSON 배열로만 응답 (설명 없이).
+PROMPT = """다음 기사 목록에서 주택·부동산 구매/임대/투자에 직접 관련된 기사만 분류하고 JSON 배열로만 응답.
 
 기사 목록:
 {articles_json}
 
 각 기사에 대해:
-[{{"index":0,"category":"정책|금리|시세|청약|세금|경매|재개발|기타","regions":["서울 마포구"],"importance":1-10,"urgent":true,"summary":"3줄 요약"}}]
+[{{"index":0,"category":"정책|금리|시세|청약|세금|경매|재개발|기타","regions":["서울 마포구"],"importance":1-10,"urgent":false,"summary":"2줄 요약"}}]
+
+importance 기준:
+- 8-10: 청약/매매/경매/정책 직접 관련, 신혼부부·생애최초 영향 큰 뉴스
+- 5-7: 금리·시세·세금 등 부동산에 간접 영향
+- 1-4: 부동산과 무관하거나 매우 일반적인 경제 기사 (주식·소비·무역 등)
 
 urgent=true 조건: 정책 당일시행 D-3이내, 금리 0.5%p이상 변동, 긴급청약/줍줍"""
 

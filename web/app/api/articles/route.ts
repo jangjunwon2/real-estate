@@ -20,6 +20,7 @@ export async function GET(req: NextRequest) {
   let query = db.from('articles')
     .select('*', { count: 'exact' })
     .eq('status', 'active')
+    .gte('importance', 5)
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1)
 

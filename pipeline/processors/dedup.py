@@ -17,7 +17,8 @@ def deduplicate(articles: list[RawArticle]) -> list[RawArticle]:
 
 
 def filter_real_estate(articles: list[RawArticle]) -> list[RawArticle]:
+    # Title must contain at least one keyword — content-only matches are too noisy
     return [
         a for a in articles
-        if any(kw.lower() in (a.title + a.content).lower() for kw in KEYWORDS)
+        if any(kw.lower() in a.title.lower() for kw in KEYWORDS)
     ]

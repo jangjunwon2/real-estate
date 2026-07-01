@@ -11,6 +11,7 @@ async function getArticles(category?: string, date?: string) {
   let query = db.from('articles')
     .select('*')
     .eq('status', 'active')
+    .gte('importance', 5)
     .order('created_at', { ascending: false })
     .limit(50)
 
