@@ -1,7 +1,10 @@
 import json
 import asyncio
+import logging
 from anthropic import AsyncAnthropic
 from crawlers.base import RawArticle, ClassifiedArticle
+
+logger = logging.getLogger(__name__)
 
 BATCH_SIZE = 10
 PROMPT = """다음 부동산 기사 목록을 분석하고 JSON 배열로만 응답 (설명 없이).
@@ -46,9 +49,11 @@ async def classify_articles(articles: list[RawArticle], anthropic_api_key: str) 
                     urgent=it.get('urgent', False),
                     summary=it.get('summary', ''),
                 ) for it in items if it.get('index', -1) < len(batch)]
-            except Exception:
+            except Exception as e:
+                logger.error(f'배치 분류 실패: {type(e).__name__}: {e}')
                 return []
 
     for b in await asyncio.gather(*[classify_batch(b) for b in batches]):
         results.extend(b)
+    logger.info(f'분류 완료: {len(results)}건')
     return results
