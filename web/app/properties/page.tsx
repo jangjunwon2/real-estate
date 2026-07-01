@@ -27,7 +27,7 @@ async function getProperties(type?: string, sort?: string) {
   }
 
   const { data } = await query
-  return (data ?? []) as Property[]
+  return (data ?? []) as unknown as Property[]
 }
 
 export default async function PropertiesPage({

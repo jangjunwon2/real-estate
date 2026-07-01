@@ -22,7 +22,7 @@ async function getArticles(category?: string, date?: string) {
   }
 
   const { data } = await query
-  return (data ?? []) as Article[]
+  return (data ?? []) as unknown as Article[]
 }
 
 export default async function ArticlesPage({
