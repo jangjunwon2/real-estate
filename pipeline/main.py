@@ -11,7 +11,7 @@ from processors.dedup import deduplicate, filter_real_estate
 from processors.classifier import classify_articles
 from processors.briefing_generator import generate_briefing
 from processors.property_scorer import score_properties
-from notifiers.email import send_briefing_email
+from notifiers.email_notifier import send_briefing_email
 from notifiers.kakao import send_urgent_alert, send_property_alert
 
 logger = logging.getLogger(__name__)
