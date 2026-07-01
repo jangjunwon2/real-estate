@@ -2,6 +2,7 @@ import { createServerClient } from '@/lib/supabase'
 import BriefingCard from '@/components/BriefingCard'
 import ArticleList from '@/components/ArticleList'
 import PropertyGrid from '@/components/PropertyGrid'
+import UrgentBanner from '@/components/articles/UrgentBanner'
 
 export const revalidate = 3600
 
@@ -41,6 +42,8 @@ export default async function HomePage() {
   return (
     <main className="max-w-5xl mx-auto px-4 py-8 space-y-10">
       <h1 className="sr-only">부동산AI 홈</h1>
+
+      <UrgentBanner articles={articles as any} />
 
       {briefing
         ? <BriefingCard briefing={briefing} />

@@ -133,7 +133,11 @@ async def main() -> None:
         )
 
         try:
-            await send_briefing_email(config, briefing['content'], signal=briefing['signal'])
+            await send_briefing_email(
+                config, briefing['content'],
+                signal=briefing['signal'],
+                articles=serialized,
+            )
         except Exception as e:
             logger.warning(f'브리핑 이메일 발송 실패 (무시): {e}')
 
