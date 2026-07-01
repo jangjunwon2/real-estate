@@ -104,13 +104,16 @@ async def main() -> None:
                 d['published_at'] = d['published_at'].isoformat()
             return d
 
+        relevant = [c for c in classified if not (getattr(c, 'category', '') == '기타' and getattr(c, 'importance', 5) < 7)]
+        logger.info(f'분류 후 저장 대상: {len(relevant)}/{len(classified)}개 (기타+저중요도 제외)')
+
         result = await backend.ingest_articles(
             run_id=run_id,
-            articles=[to_dict(c) for c in classified],
+            articles=[to_dict(c) for c in relevant],
         )
         saved = result.get('saved', 0)
 
-        serialized = [to_dict(c) for c in classified]
+        serialized = [to_dict(c) for c in relevant]
         try:
             scored_props, briefing = await asyncio.wait_for(
                 asyncio.gather(

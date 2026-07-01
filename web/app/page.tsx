@@ -22,6 +22,7 @@ async function getData() {
       .select('id,title,url,source,category,importance,urgent,summary,published_at,created_at,status,regions')
       .eq('status', 'active')
       .gte('importance', 5)
+      .neq('category', '기타')
       .order('created_at', { ascending: false })
       .limit(20),
     db.from('properties')

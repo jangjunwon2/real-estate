@@ -1,5 +1,6 @@
 import { createServerClient } from '@/lib/supabase'
 import PropertyGrid from '@/components/PropertyGrid'
+import QuickPrefsPanel from '@/components/properties/QuickPrefsPanel'
 import type { Property } from '@/types'
 import Link from 'next/link'
 
@@ -84,10 +85,14 @@ export default async function PropertiesPage({
             <p className="text-sm text-amber-600 mt-0.5">내 정보를 설정하면 맞춤 추천을 받을 수 있어요</p>
           )}
         </div>
-        <Link href="/settings" className="text-xs text-indigo-600 hover:underline mt-1">
-          {prefs ? '내 정보 수정 →' : '내 정보 설정하기 →'}
-        </Link>
+        {prefs && (
+          <Link href="/settings" className="text-xs text-indigo-600 hover:underline mt-1 shrink-0">
+            수정 →
+          </Link>
+        )}
       </div>
+
+      {!prefs && <QuickPrefsPanel />}
 
       <div className="flex flex-wrap items-center gap-4">
         <div className="flex gap-2">

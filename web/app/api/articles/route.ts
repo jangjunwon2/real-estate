@@ -21,6 +21,7 @@ export async function GET(req: NextRequest) {
     .select('*', { count: 'exact' })
     .eq('status', 'active')
     .gte('importance', 5)
+    .neq('category', '기타')
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1)
 

@@ -12,6 +12,7 @@ async function getArticles(category?: string, date?: string) {
     .select('*')
     .eq('status', 'active')
     .gte('importance', 5)
+    .neq('category', '기타')
     .order('created_at', { ascending: false })
     .limit(50)
 
