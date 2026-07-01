@@ -5,8 +5,10 @@ import { validatePipelineKey, unauthorized } from '@/lib/auth'
 export async function POST(req: NextRequest) {
   if (!validatePipelineKey(req)) return unauthorized()
   const { run_id, articles } = await req.json()
-  if (!Array.isArray(articles) || articles.length === 0)
-    return Response.json({ error: 'articles array required' }, { status: 400 })
+  if (!Array.isArray(articles))
+    return Response.json({ error: 'articles must be an array' }, { status: 400 })
+  if (articles.length === 0)
+    return Response.json({ saved: 0, skipped: 0, run_id })
 
   const db = createServerClient()
   const rows = articles.map((a: Record<string, unknown>) => ({

@@ -1,5 +1,6 @@
 import asyncio
 import logging
+import httpx
 from config import load_config
 from client import BackendClient
 from crawlers.naver_news import fetch_naver_news
@@ -7,6 +8,7 @@ from crawlers.public_apis import fetch_molit_transactions, fetch_bok_rate, fetch
 from crawlers.rss import fetch_rss
 from crawlers.onbid import fetch_onbid
 from crawlers.court_auction import fetch_court_auctions
+from crawlers.base import ClassifiedArticle
 from processors.dedup import deduplicate, filter_real_estate
 from processors.classifier import classify_articles
 from processors.briefing_generator import generate_briefing
@@ -71,12 +73,29 @@ async def main() -> None:
 
     fetched = saved = skipped = 0
     try:
+        # Anthropic API 키 및 연결 진단
+        api_key = config.anthropic_api_key
+        logger.info(f'ANTHROPIC_API_KEY: 길이={len(api_key)}, 시작={api_key[:8] if api_key else "없음"}')
+        try:
+            async with httpx.AsyncClient(timeout=5) as test_client:
+                r = await test_client.get('https://api.anthropic.com/')
+                logger.info(f'Anthropic 연결 테스트: {r.status_code}')
+        except Exception as conn_err:
+            logger.warning(f'Anthropic API 연결 불가: {conn_err}')
+
         raw = await crawl_all_sources(config)
         fetched = len(raw)
         filtered = filter_real_estate(deduplicate(raw))
         skipped = fetched - len(filtered)
+        logger.info(f'크롤링: 수집={fetched}, 필터후={len(filtered)}')
 
         classified = await classify_articles(filtered, config.anthropic_api_key)
+        if not classified and filtered:
+            logger.warning(f'AI 분류 실패, {len(filtered)}개 기사를 기본값(기타)으로 저장')
+            classified = [ClassifiedArticle(
+                source=a.source, title=a.title, url=a.url,
+                content=a.content, published_at=a.published_at,
+            ) for a in filtered]
 
         result = await backend.ingest_articles(
             run_id=run_id,
