@@ -55,6 +55,7 @@ jobs:
         working-directory: pipeline
         env:
           RESEND_API_KEY:    ${{ secrets.RESEND_API_KEY }}
+          RESEND_FROM:       ${{ secrets.RESEND_FROM }}
           USER_EMAIL:        ${{ secrets.NOTIFY_EMAIL }}
           GITHUB_RUN_ID:     ${{ github.run_id }}
           GITHUB_REPOSITORY: ${{ github.repository }}

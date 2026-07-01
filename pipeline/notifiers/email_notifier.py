@@ -24,7 +24,7 @@ async def send_briefing_email(config, content: str, signal: str | None = None) -
   <p style="color:#888;font-size:12px;margin-top:24px">부동산AI — 신혼부부 맞춤 서비스</p>
 </body></html>"""
     resend.Emails.send({
-        'from': '부동산AI <brief@yourdomain.com>',
+        'from': config.resend_from,
         'to': config.user_email,
         'subject': f'[부동산AI] {today} 부동산 브리핑',
         'html': html,
