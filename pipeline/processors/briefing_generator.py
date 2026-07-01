@@ -1,5 +1,27 @@
 import json
+import re
+import logging
 import anthropic as sdk
+
+logger = logging.getLogger(__name__)
+
+
+def _extract_json(text: str):
+    text = text.strip()
+    # Try direct parse
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+    # Strip markdown code block
+    m = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', text)
+    if m:
+        return json.loads(m.group(1))
+    # Find first {...} object
+    m = re.search(r'\{[\s\S]*\}', text)
+    if m:
+        return json.loads(m.group(0))
+    raise json.JSONDecodeError('No JSON found', text, 0)
 
 
 async def generate_briefing(articles: list, anthropic_api_key: str) -> dict:
@@ -18,13 +40,19 @@ async def generate_briefing(articles: list, anthropic_api_key: str) -> dict:
 
 signal 기준: buy=금리인하+규제완화+시장안정 동시, avoid=금리인상+규제강화+시장불안 동시, wait=그 외"""
 
-    msg = await client.messages.create(
-        model='claude-haiku-4-5-20251001', max_tokens=512,
-        messages=[{'role': 'user', 'content': prompt}],
-    )
-    result = json.loads(msg.content[0].text)
-    return {
-        'content': result.get('content', ''),
-        'signal': result.get('signal', 'wait'),
-        'signal_reason': result.get('signal_reason', ''),
-    }
+    try:
+        msg = await client.messages.create(
+            model='claude-haiku-4-5-20251001', max_tokens=512,
+            messages=[{'role': 'user', 'content': prompt}],
+        )
+        raw = msg.content[0].text if msg.content else ''
+        logger.info(f'브리핑 응답: {raw[:200]}')
+        result = _extract_json(raw)
+        return {
+            'content': result.get('content', ''),
+            'signal': result.get('signal', 'wait'),
+            'signal_reason': result.get('signal_reason', ''),
+        }
+    except Exception as e:
+        logger.error(f'브리핑 생성 실패: {e}')
+        return {'content': '오늘의 브리핑을 생성하지 못했습니다.', 'signal': 'wait', 'signal_reason': ''}

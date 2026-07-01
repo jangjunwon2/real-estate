@@ -1,4 +1,5 @@
 import json
+import re
 import asyncio
 import logging
 from anthropic import AsyncAnthropic
@@ -16,6 +17,21 @@ PROMPT = """다음 부동산 기사 목록을 분석하고 JSON 배열로만 응
 [{{"index":0,"category":"정책|금리|시세|청약|세금|경매|재개발|기타","regions":["서울 마포구"],"importance":1-10,"urgent":true,"summary":"3줄 요약"}}]
 
 urgent=true 조건: 정책 당일시행 D-3이내, 금리 0.5%p이상 변동, 긴급청약/줍줍"""
+
+
+def _extract_json_array(text: str) -> list:
+    text = text.strip()
+    try:
+        return json.loads(text)
+    except json.JSONDecodeError:
+        pass
+    m = re.search(r'```(?:json)?\s*([\s\S]*?)\s*```', text)
+    if m:
+        return json.loads(m.group(1))
+    m = re.search(r'\[[\s\S]*\]', text)
+    if m:
+        return json.loads(m.group(0))
+    raise json.JSONDecodeError('No JSON array found', text, 0)
 
 
 async def classify_articles(articles: list[RawArticle], anthropic_api_key: str) -> list[ClassifiedArticle]:
@@ -36,7 +52,12 @@ async def classify_articles(articles: list[RawArticle], anthropic_api_key: str) 
                     model='claude-haiku-4-5-20251001', max_tokens=2048,
                     messages=[{'role': 'user', 'content': PROMPT.format(articles_json=articles_json)}],
                 )
-                items = json.loads(msg.content[0].text)
+                raw = msg.content[0].text if msg.content else ''
+                if not raw:
+                    logger.error('배치 분류 실패: 빈 응답')
+                    return []
+                logger.info(f'분류 응답 미리보기: {raw[:100]}')
+                items = _extract_json_array(raw)
                 return [ClassifiedArticle(
                     source=batch[it['index']].source,
                     title=batch[it['index']].title,
