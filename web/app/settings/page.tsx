@@ -1,6 +1,8 @@
 'use client'
 import { useEffect, useState } from 'react'
 
+export const dynamic = 'force-dynamic'
+
 const REGIONS_PRESET = [
   '서울', '경기 성남', '경기 수원', '경기 용인', '경기 화성', '경기 고양',
   '인천', '경기 부천', '경기 안양', '경기 의정부',

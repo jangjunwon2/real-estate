@@ -1,12 +1,12 @@
 import { createServerClient } from '@/lib/supabase'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
-import dynamic from 'next/dynamic'
 import EligibilityBadge from '@/components/properties/EligibilityBadge'
 import SubscriptionCountdown from '@/components/properties/SubscriptionCountdown'
 import LoanCalculator from '@/components/properties/LoanCalculator'
+import KakaoMapWrapper from '@/components/properties/KakaoMapWrapper'
 
-const KakaoMap = dynamic(() => import('@/components/KakaoMap'), { ssr: false })
+export const dynamic = 'force-dynamic'
 
 const TYPE_LABEL: Record<string, string> = { sale: '매매', auction: '경매', subscription: '청약' }
 
@@ -240,7 +240,7 @@ export default async function PropertyDetailPage({
           {complex.road_address && (
             <p className="text-sm text-gray-500">{complex.road_address}</p>
           )}
-          <KakaoMap
+          <KakaoMapWrapper
             lat={Number(complex.lat)}
             lng={Number(complex.lng)}
             name={complex.name}

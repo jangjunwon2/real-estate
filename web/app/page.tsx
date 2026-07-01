@@ -4,7 +4,8 @@ import ArticleList from '@/components/ArticleList'
 import PropertyGrid from '@/components/PropertyGrid'
 import UrgentBanner from '@/components/articles/UrgentBanner'
 
-export const revalidate = 3600
+export const dynamic = 'force-dynamic'
+
 
 async function getData() {
   const db = createServerClient()

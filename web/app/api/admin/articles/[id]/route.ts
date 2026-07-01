@@ -3,6 +3,7 @@ import { createServerClient } from '@/lib/supabase'
 import { validateAdminKey, unauthorized } from '@/lib/auth'
 import { ArticlePatchSchema } from '@/lib/validators'
 import { revalidatePath } from 'next/cache'
+export const dynamic = 'force-dynamic'
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!validateAdminKey(req)) return unauthorized()

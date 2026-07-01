@@ -3,7 +3,8 @@ import PropertyGrid from '@/components/PropertyGrid'
 import type { Property } from '@/types'
 import Link from 'next/link'
 
-export const revalidate = 1800
+export const dynamic = 'force-dynamic'
+
 
 const TYPE_TABS = [
   { value: '', label: '전체' },

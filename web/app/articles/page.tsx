@@ -3,7 +3,8 @@ import ArticleList from '@/components/ArticleList'
 import CategoryFilter from '@/components/articles/CategoryFilter'
 import type { Article } from '@/types'
 
-export const revalidate = 1800
+export const dynamic = 'force-dynamic'
+
 
 async function getArticles(category?: string, date?: string) {
   const db = createServerClient()

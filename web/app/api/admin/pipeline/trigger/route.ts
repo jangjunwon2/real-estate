@@ -1,5 +1,6 @@
 import { NextRequest } from 'next/server'
 import { validateAdminKey, unauthorized } from '@/lib/auth'
+export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest) {
   if (!validateAdminKey(req)) return unauthorized()

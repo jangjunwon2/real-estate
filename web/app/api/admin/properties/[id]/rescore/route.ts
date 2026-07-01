@@ -2,6 +2,7 @@ import { NextRequest } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createServerClient } from '@/lib/supabase'
 import { validateAdminKey, unauthorized } from '@/lib/auth'
+export const dynamic = 'force-dynamic'
 
 const anthropic = new Anthropic()
 

@@ -1,8 +1,8 @@
 import { NextRequest } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { ArticleQuerySchema } from '@/lib/validators'
+export const dynamic = 'force-dynamic'
 
-export const revalidate = 1800
 
 export async function GET(req: NextRequest) {
   const url = req.nextUrl

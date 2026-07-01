@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { validatePipelineKey, unauthorized } from '@/lib/auth'
+export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest) {
   if (!validatePipelineKey(req)) return unauthorized()

@@ -64,18 +64,17 @@ async def test_fetch_naver_news_handles_http_error(config):
 
 @pytest.mark.asyncio
 async def test_fetch_rss_returns_articles(config):
-    rss_xml = b"""<?xml version="1.0"?>
-    <rss><channel>
-      <item>
-        <title>아파트 분양 소식</title>
-        <link>https://mk.co.kr/article/1</link>
-        <description>서울 아파트 신규 분양 모집</description>
-        <pubDate>Mon, 01 Jan 2025 09:00:00 +0900</pubDate>
-      </item>
-    </channel></rss>"""
+    rss_xml = (
+        '<?xml version="1.0"?><rss><channel><item>'
+        '<title>Apartment Sale</title>'
+        '<link>https://mk.co.kr/article/1</link>'
+        '<description>New apartment sale in Seoul</description>'
+        '<pubDate>Mon, 01 Jan 2025 09:00:00 +0900</pubDate>'
+        '</item></channel></rss>'
+    )
 
     mock_response = MagicMock()
-    mock_response.text = rss_xml.decode()
+    mock_response.text = rss_xml
 
     with patch('httpx.AsyncClient') as mock_client_cls:
         mock_client = AsyncMock()
@@ -88,7 +87,7 @@ async def test_fetch_rss_returns_articles(config):
         results = await fetch_rss(config)
 
     assert len(results) > 0
-    assert results[0].title == '아파트 분양 소식'
+    assert results[0].title == 'Apartment Sale'
     assert results[0].url == 'https://mk.co.kr/article/1'
 
 

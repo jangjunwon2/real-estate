@@ -19,5 +19,5 @@ def deduplicate(articles: list[RawArticle]) -> list[RawArticle]:
 def filter_real_estate(articles: list[RawArticle]) -> list[RawArticle]:
     return [
         a for a in articles
-        if any(kw in (a.title + a.content).lower() for kw in KEYWORDS)
+        if any(kw.lower() in (a.title + a.content).lower() for kw in KEYWORDS)
     ]
