@@ -54,6 +54,6 @@ def load_config() -> Config:
         user_email=os.environ['USER_EMAIL'],
         user_phone=os.environ.get('USER_PHONE', ''),
         user_region=os.environ.get('USER_REGION', '서울'),
-        user_budget_min=int(os.environ.get('USER_BUDGET_MIN', 30000)),
-        user_budget_max=int(os.environ.get('USER_BUDGET_MAX', 60000)),
+        user_budget_min=int(os.environ.get('USER_BUDGET_MIN') or 30000),
+        user_budget_max=int(os.environ.get('USER_BUDGET_MAX') or 60000),
     )
