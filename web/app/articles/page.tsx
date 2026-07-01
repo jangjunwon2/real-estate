@@ -1,6 +1,7 @@
 import { createServerClient } from '@/lib/supabase'
 import ArticleList from '@/components/ArticleList'
 import CategoryFilter from '@/components/articles/CategoryFilter'
+import { TITLE_KEYWORD_FILTER } from '@/lib/articleFilter'
 import type { Article } from '@/types'
 
 export const dynamic = 'force-dynamic'
@@ -11,8 +12,7 @@ async function getArticles(category?: string, date?: string) {
   let query = db.from('articles')
     .select('*')
     .eq('status', 'active')
-    .gte('importance', 5)
-    .neq('category', '기타')
+    .or(TITLE_KEYWORD_FILTER)
     .order('created_at', { ascending: false })
     .limit(50)
 

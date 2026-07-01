@@ -3,6 +3,7 @@ import BriefingCard from '@/components/BriefingCard'
 import ArticleList from '@/components/ArticleList'
 import PropertyGrid from '@/components/PropertyGrid'
 import UrgentBanner from '@/components/articles/UrgentBanner'
+import { TITLE_KEYWORD_FILTER } from '@/lib/articleFilter'
 import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
@@ -22,8 +23,7 @@ async function getData() {
     db.from('articles')
       .select('id,title,url,source,category,importance,urgent,summary,published_at,created_at,status,regions')
       .eq('status', 'active')
-      .gte('importance', 5)
-      .neq('category', '기타')
+      .or(TITLE_KEYWORD_FILTER)
       .order('created_at', { ascending: false })
       .limit(20),
     db.from('properties')

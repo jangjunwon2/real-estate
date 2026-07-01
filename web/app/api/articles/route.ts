@@ -1,6 +1,7 @@
 import { NextRequest } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
 import { ArticleQuerySchema } from '@/lib/validators'
+import { TITLE_KEYWORD_FILTER } from '@/lib/articleFilter'
 export const dynamic = 'force-dynamic'
 
 
@@ -20,8 +21,7 @@ export async function GET(req: NextRequest) {
   let query = db.from('articles')
     .select('*', { count: 'exact' })
     .eq('status', 'active')
-    .gte('importance', 5)
-    .neq('category', '기타')
+    .or(TITLE_KEYWORD_FILTER)
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1)
 
