@@ -4,6 +4,7 @@ const LINKS = [
   { href: '/',            label: '홈' },
   { href: '/articles',   label: '뉴스' },
   { href: '/properties', label: '매물' },
+  { href: '/settings',   label: '내 정보' },
   { href: '/pricing',    label: '요금제' },
 ]
 
