@@ -111,10 +111,17 @@ async def main() -> None:
         saved = result.get('saved', 0)
 
         serialized = [to_dict(c) for c in classified]
-        scored_props, briefing = await asyncio.gather(
-            process_properties(config, backend, run_id),
-            generate_briefing(serialized, config.anthropic_api_key),
-        )
+        try:
+            scored_props, briefing = await asyncio.wait_for(
+                asyncio.gather(
+                    process_properties(config, backend, run_id),
+                    generate_briefing(serialized, config.anthropic_api_key),
+                ),
+                timeout=120,
+            )
+        except asyncio.TimeoutError:
+            logger.warning('매물처리/브리핑 타임아웃 (무시)')
+            scored_props, briefing = [], {'content': '', 'signal': 'wait', 'signal_reason': ''}
 
         await backend.save_briefing(
             run_id=run_id,
