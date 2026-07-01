@@ -1,0 +1,61 @@
+name: Daily Real Estate Pipeline
+
+on:
+  schedule:
+    - cron: '0 21 * * *'  # 매일 KST 06:00 (UTC 21:00)
+  workflow_dispatch:
+
+jobs:
+  run-pipeline:
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-python@v5
+        with:
+          python-version: '3.12'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: pip install -r pipeline/requirements.txt
+
+      - name: Install Playwright browser
+        run: playwright install chromium --with-deps
+
+      - name: Run pipeline
+        working-directory: pipeline
+        env:
+          NAVER_CLIENT_ID:         ${{ secrets.NAVER_CLIENT_ID }}
+          NAVER_CLIENT_SECRET:     ${{ secrets.NAVER_CLIENT_SECRET }}
+          MOLIT_API_KEY:           ${{ secrets.MOLIT_API_KEY }}
+          BOK_API_KEY:             ${{ secrets.BOK_API_KEY }}
+          ANTHROPIC_API_KEY:       ${{ secrets.ANTHROPIC_API_KEY }}
+          BACKEND_URL:             ${{ secrets.BACKEND_URL }}
+          PIPELINE_API_KEY:        ${{ secrets.PIPELINE_API_KEY }}
+          RESEND_API_KEY:          ${{ secrets.RESEND_API_KEY }}
+          SOLAPI_API_KEY:          ${{ secrets.SOLAPI_API_KEY }}
+          SOLAPI_API_SECRET:       ${{ secrets.SOLAPI_API_SECRET }}
+          KAKAO_SENDER_KEY:        ${{ secrets.KAKAO_SENDER_KEY }}
+          KAKAO_TEMPLATE_URGENT:   ${{ secrets.KAKAO_TEMPLATE_URGENT }}
+          KAKAO_TEMPLATE_PROPERTY: ${{ secrets.KAKAO_TEMPLATE_PROPERTY }}
+          KAKAO_REST_API_KEY:      ${{ secrets.KAKAO_REST_API_KEY }}
+          USER_EMAIL:              ${{ secrets.USER_EMAIL }}
+          USER_PHONE:              ${{ secrets.USER_PHONE }}
+          USER_REGION:             ${{ secrets.USER_REGION }}
+          USER_BUDGET_MIN:         ${{ secrets.USER_BUDGET_MIN }}
+          USER_BUDGET_MAX:         ${{ secrets.USER_BUDGET_MAX }}
+          GITHUB_RUN_ID:           ${{ github.run_id }}
+          GITHUB_REPOSITORY:       ${{ github.repository }}
+        run: python main.py
+
+      - name: Notify on failure
+        if: failure()
+        working-directory: pipeline
+        env:
+          RESEND_API_KEY:    ${{ secrets.RESEND_API_KEY }}
+          USER_EMAIL:        ${{ secrets.USER_EMAIL }}
+          GITHUB_RUN_ID:     ${{ github.run_id }}
+          GITHUB_REPOSITORY: ${{ github.repository }}
+        run: python notifiers/alert_failure.py
