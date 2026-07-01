@@ -125,15 +125,24 @@ async def main() -> None:
             urgent_count=sum(1 for c in classified if getattr(c, 'urgent', False)),
         )
 
-        await send_briefing_email(config, briefing['content'], signal=briefing['signal'])
+        try:
+            await send_briefing_email(config, briefing['content'], signal=briefing['signal'])
+        except Exception as e:
+            logger.warning(f'브리핑 이메일 발송 실패 (무시): {e}')
 
-        urgent = [d for d in serialized if d.get('urgent')]
-        if urgent:
-            await send_urgent_alert(config, urgent)
+        try:
+            urgent = [d for d in serialized if d.get('urgent')]
+            if urgent:
+                await send_urgent_alert(config, urgent)
+        except Exception as e:
+            logger.warning(f'긴급 알림 발송 실패 (무시): {e}')
 
-        top = sorted(scored_props, key=lambda x: x.get('total_score', 0), reverse=True)[:3]
-        if top:
-            await send_property_alert(config, top)
+        try:
+            top = sorted(scored_props, key=lambda x: x.get('total_score', 0), reverse=True)[:3]
+            if top:
+                await send_property_alert(config, top)
+        except Exception as e:
+            logger.warning(f'매물 알림 발송 실패 (무시): {e}')
 
         await backend.finish_run(
             run_id=run_id, status='success',

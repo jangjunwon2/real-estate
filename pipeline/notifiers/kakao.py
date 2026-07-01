@@ -51,7 +51,7 @@ async def send_property_alert(config, properties: list[dict]) -> None:
 async def _send_fallback_email(config, body: str, subject: str) -> None:
     resend.api_key = config.resend_api_key
     resend.Emails.send({
-        'from': '부동산AI <brief@yourdomain.com>',
+        'from': f'부동산AI <{config.resend_from}>',
         'to': config.user_email,
         'subject': subject,
         'html': f'<pre style="font-family:sans-serif;line-height:1.7">{body}</pre>',
