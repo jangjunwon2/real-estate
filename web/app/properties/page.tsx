@@ -75,13 +75,17 @@ export default async function PropertiesPage({
       <div className="flex items-start justify-between">
         <div>
           <h1 className="text-xl font-bold">매물 분석</h1>
-          {prefs && (
+          {prefs ? (
             <p className="text-sm text-gray-500 mt-0.5">
               관심 지역: {(prefs.regions as string[]).join(', ')} · 예산: {prefs.budget_min.toLocaleString()}~{prefs.budget_max.toLocaleString()}만원
             </p>
+          ) : (
+            <p className="text-sm text-amber-600 mt-0.5">내 정보를 설정하면 맞춤 추천을 받을 수 있어요</p>
           )}
         </div>
-        <Link href="/settings" className="text-xs text-indigo-600 hover:underline mt-1">내 정보 수정 →</Link>
+        <Link href="/settings" className="text-xs text-indigo-600 hover:underline mt-1">
+          {prefs ? '내 정보 수정 →' : '내 정보 설정하기 →'}
+        </Link>
       </div>
 
       <div className="flex flex-wrap items-center gap-4">
