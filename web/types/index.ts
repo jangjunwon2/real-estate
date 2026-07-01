@@ -84,7 +84,7 @@ export interface Briefing {
   articles_count: number
   urgent_count: number
   generated_at: string
-  pipeline_run_id: string | null
+  pipeline_run_id?: string | null
 }
 
 export interface PipelineRun {
