@@ -12,7 +12,7 @@
     "react": "^19.0.0",
     "react-dom": "^19.0.0",
     "@supabase/supabase-js": "^2.46.0",
-    "@anthropic-ai/sdk": "^0.34.0",
+    "@anthropic-ai/sdk": "latest",
     "recharts": "^2.13.0",
     "zod": "^3.23.0"
   },
