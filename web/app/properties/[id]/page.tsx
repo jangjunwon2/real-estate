@@ -17,6 +17,19 @@ export const dynamic = 'force-dynamic'
 const TYPE_LABEL: Record<string, string> = { sale: '매매', auction: '경매', subscription: '청약' }
 const PREF_ID = '00000000-0000-0000-0000-000000000001'
 
+// source_url이 세션 기반(.laf/.do)이면 직접 링크 불가 — 공식 홈 URL로 대체
+function getExternalUrl(source: string, sourceUrl: string): string {
+  if (source === 'court') return 'https://www.courtauction.go.kr/'
+  if (source === 'applyhome') return 'https://www.applyhome.co.kr/ai/aia/selectSubscrptHouseList.do'
+  return sourceUrl
+}
+
+function getExternalLabel(source: string): string {
+  if (source === 'court') return '법원경매정보에서 찾기 →'
+  if (source === 'applyhome') return '청약홈에서 확인하기 →'
+  return '네이버 부동산에서 보기 →'
+}
+
 async function getProperty(id: string) {
   const db = createServerClient()
   const { data } = await db.from('properties')
@@ -298,12 +311,12 @@ export default async function PropertyDetailPage({
 
       {/* 원문 링크 */}
       <a
-        href={property.source_url}
+        href={getExternalUrl(property.source, property.source_url)}
         target="_blank"
         rel="noopener noreferrer"
         className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors"
       >
-        원본 매물 보기 →
+        {getExternalLabel(property.source)}
       </a>
     </main>
   )
