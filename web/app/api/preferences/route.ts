@@ -16,6 +16,12 @@ const DEFAULT_PREFS = {
   is_first_buyer: false,
   no_home_years: 0,
   num_children: 0,
+  deposit_to_recover: 0,
+  gift_amount: 0,
+  existing_loan_payment: 0,
+  renovation_budget: 0,
+  credit_score_range: '800-900',
+  birth_year: null as number | null,
 }
 
 export async function GET() {
@@ -39,6 +45,12 @@ export async function POST(req: NextRequest) {
     is_first_buyer: Boolean(body.is_first_buyer),
     no_home_years: Number(body.no_home_years) || 0,
     num_children: Number(body.num_children) || 0,
+    deposit_to_recover: Number(body.deposit_to_recover) || 0,
+    gift_amount: Number(body.gift_amount) || 0,
+    existing_loan_payment: Number(body.existing_loan_payment) || 0,
+    renovation_budget: Number(body.renovation_budget) || 0,
+    credit_score_range: body.credit_score_range ?? '800-900',
+    birth_year: body.birth_year ? Number(body.birth_year) : null,
     updated_at: new Date().toISOString(),
   })
   if (error) return Response.json({ error: error.message }, { status: 500 })

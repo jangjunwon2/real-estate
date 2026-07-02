@@ -40,6 +40,13 @@ async def crawl_all_sources(config) -> list:
     return articles
 
 
+_PROP_TYPE_MAP = {
+    'onbid': 'auction',
+    'court_auction': 'auction',
+    'subscription': 'subscription',
+}
+
+
 async def process_properties(config, backend: BackendClient, run_id: str) -> list[dict]:
     raw_results = await asyncio.gather(
         fetch_onbid(config),
@@ -50,7 +57,14 @@ async def process_properties(config, backend: BackendClient, run_id: str) -> lis
     all_props = []
     for r in raw_results:
         if not isinstance(r, Exception) and r:
-            all_props.extend([{'raw': p.__dict__} for p in r])
+            for article in r:
+                all_props.append({
+                    'source': article.source,
+                    'source_url': article.url,
+                    'property_type': _PROP_TYPE_MAP.get(article.source, 'sale'),
+                    'title': article.title,
+                    'raw': article.content,
+                })
     if not all_props:
         return []
     scored = await score_properties(

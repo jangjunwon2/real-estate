@@ -1,7 +1,15 @@
 'use client'
-import { useEffect, useState } from 'react'
+import { useEffect, useState, useMemo } from 'react'
+import {
+  calcAffordableScenarios,
+  calcNoHomeYears,
+  type UserFinance,
+  type AffordableScenario,
+} from '@/lib/koreanRealEstate'
 
 export const dynamic = 'force-dynamic'
+
+const CURRENT_YEAR = new Date().getFullYear()
 
 const REGIONS_PRESET = [
   '서울', '경기 성남', '경기 수원', '경기 용인', '경기 화성', '경기 고양',
@@ -12,6 +20,13 @@ const PROPERTY_TYPE_OPTIONS = [
   { value: 'sale', label: '매매' },
   { value: 'subscription', label: '청약' },
   { value: 'auction', label: '경매' },
+]
+
+const CREDIT_SCORE_OPTIONS = [
+  { value: '900+', label: '900점 이상', desc: '최우량' },
+  { value: '800-900', label: '800~900점', desc: '우량' },
+  { value: '700-800', label: '700~800점', desc: '일반' },
+  { value: '700-', label: '700점 미만', desc: '관리 필요' },
 ]
 
 interface Prefs {
@@ -25,6 +40,12 @@ interface Prefs {
   is_first_buyer: boolean
   no_home_years: number
   num_children: number
+  deposit_to_recover: number
+  gift_amount: number
+  existing_loan_payment: number
+  renovation_budget: number
+  credit_score_range: string
+  birth_year: number | null
 }
 
 const DEFAULT_PREFS: Prefs = {
@@ -38,6 +59,43 @@ const DEFAULT_PREFS: Prefs = {
   is_first_buyer: false,
   no_home_years: 0,
   num_children: 0,
+  deposit_to_recover: 0,
+  gift_amount: 0,
+  existing_loan_payment: 0,
+  renovation_budget: 0,
+  credit_score_range: '800-900',
+  birth_year: null,
+}
+
+function NumInput({
+  label, value, onChange, placeholder = '0', unit = '만원', step = 100, sub,
+}: {
+  label: string; value: number; onChange: (v: number) => void
+  placeholder?: string; unit?: string; step?: number; sub?: string
+}) {
+  return (
+    <div className="space-y-1">
+      <label className="text-xs text-gray-500 block">{label}</label>
+      <div className="flex items-center gap-1.5">
+        <input
+          type="number" value={value || ''} onChange={e => onChange(Number(e.target.value))}
+          placeholder={placeholder} step={step} min={0}
+          className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400"
+        />
+        <span className="text-xs text-gray-400 shrink-0">{unit}</span>
+      </div>
+      {sub && <p className="text-[11px] text-gray-400">{sub}</p>}
+    </div>
+  )
+}
+
+function priceLabel(p: number): string {
+  if (p <= 0) return '—'
+  const eok = Math.floor(p / 10000)
+  const man = p % 10000
+  return eok > 0
+    ? `${eok}억${man > 0 ? ` ${man.toLocaleString()}만` : ''}`
+    : `${p.toLocaleString()}만`
 }
 
 export default function SettingsPage() {
@@ -54,16 +112,15 @@ export default function SettingsPage() {
       .catch(() => setLoading(false))
   }, [])
 
-  const addRegion = (region: string) => {
-    const r = region.trim()
-    if (!r || prefs.regions.includes(r)) return
-    setPrefs(p => ({ ...p, regions: [...p.regions, r] }))
+  const set = <K extends keyof Prefs>(k: K) => (v: Prefs[K]) =>
+    setPrefs(p => ({ ...p, [k]: v }))
+
+  const addRegion = (r: string) => {
+    const t = r.trim()
+    if (!t || prefs.regions.includes(t)) return
+    setPrefs(p => ({ ...p, regions: [...p.regions, t] }))
     setRegionInput('')
   }
-
-  const removeRegion = (r: string) =>
-    setPrefs(p => ({ ...p, regions: p.regions.filter(x => x !== r) }))
-
   const toggleType = (type: string) =>
     setPrefs(p => ({
       ...p,
@@ -72,255 +129,372 @@ export default function SettingsPage() {
         : [...p.property_types, type],
     }))
 
+  // ── 자동 계산 ──────────────────────────────────────────────────────────
+  const age = prefs.birth_year ? CURRENT_YEAR - prefs.birth_year : null
+  const selfFunds = prefs.assets + prefs.deposit_to_recover + prefs.gift_amount
+
+  const finance: UserFinance = useMemo(() => ({
+    income: prefs.monthly_income,
+    assets: prefs.assets,
+    depositToRecover: prefs.deposit_to_recover,
+    giftAmount: prefs.gift_amount,
+    existingLoanPayment: prefs.existing_loan_payment,
+    isNewlywed: prefs.is_newlywed,
+    isFirstBuyer: prefs.is_first_buyer,
+    noHomeYears: prefs.no_home_years,
+    numChildren: prefs.num_children,
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }), [prefs.monthly_income, prefs.assets, prefs.deposit_to_recover, prefs.gift_amount,
+       prefs.existing_loan_payment, prefs.is_newlywed, prefs.is_first_buyer,
+       prefs.no_home_years, prefs.num_children])
+
+  const affordableScenarios = useMemo<AffordableScenario[]>(() => {
+    if (selfFunds === 0 && prefs.monthly_income === 0) return []
+    return calcAffordableScenarios(selfFunds, finance)
+  }, [selfFunds, finance])
+
+  const bestEligible = affordableScenarios.find(s => s.eligible && s.maxPrice > 0)
+
   const save = async () => {
     setSaving(true)
-    setSaved(false)
     await fetch('/api/preferences', {
       method: 'POST',
       headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify(prefs),
     })
-    setSaving(false)
-    setSaved(true)
+    setSaving(false); setSaved(true)
     setTimeout(() => setSaved(false), 3000)
   }
 
-  // DSR 40% 기준 최대 대출 추정 (연소득 × 0.4 ÷ 12 × 300개월)
-  const maxLoan = prefs.monthly_income > 0
-    ? Math.round(prefs.monthly_income * 0.4 / 12 * 300)
-    : 0
-
-  // 신혼부부 생애최초 LTV 최대 80%
-  const eligibleLtv = prefs.is_newlywed && prefs.is_first_buyer ? 0.8 : 0.7
-  const ltvMax = prefs.budget_max > 0 ? Math.round(prefs.budget_max * eligibleLtv) : 0
-
-  const effectiveLoan = Math.min(maxLoan, ltvMax)
-
-  if (loading) return <main className="max-w-xl mx-auto px-4 py-12 text-gray-400">불러오는 중...</main>
+  if (loading) {
+    return <main className="max-w-xl mx-auto px-4 py-12 text-gray-400 text-sm">불러오는 중...</main>
+  }
 
   return (
     <main className="max-w-xl mx-auto px-4 py-10 space-y-10">
       <div>
         <h1 className="text-xl font-bold text-gray-900">내 정보 설정</h1>
-        <p className="text-sm text-gray-500 mt-1">설정한 정보를 바탕으로 맞춤 매물과 뉴스를 추천합니다.</p>
+        <p className="text-sm text-gray-500 mt-1">실제 자금과 상태를 입력하면 구매 가능 금액을 자동으로 계산합니다.</p>
       </div>
 
-      {/* 내 상태 */}
+      {/* ══ 1. 내 상태 ═══════════════════════════════════════════════════ */}
       <section className="space-y-4">
         <h2 className="font-semibold text-gray-800">내 상태</h2>
 
         <div className="grid grid-cols-2 gap-3">
-          <button
-            onClick={() => setPrefs(p => ({ ...p, is_newlywed: !p.is_newlywed }))}
-            className={`flex items-center gap-2 px-4 py-3 rounded-xl border text-sm font-medium transition-colors ${
-              prefs.is_newlywed
-                ? 'bg-indigo-600 text-white border-indigo-600'
-                : 'border-gray-200 text-gray-600 hover:border-gray-400'
-            }`}
-          >
-            <span>💍</span>
-            <div className="text-left">
-              <p>신혼부부</p>
-              <p className={`text-xs font-normal ${prefs.is_newlywed ? 'text-indigo-200' : 'text-gray-400'}`}>혼인 7년 이내</p>
-            </div>
-          </button>
-
-          <button
-            onClick={() => setPrefs(p => ({ ...p, is_first_buyer: !p.is_first_buyer }))}
-            className={`flex items-center gap-2 px-4 py-3 rounded-xl border text-sm font-medium transition-colors ${
-              prefs.is_first_buyer
-                ? 'bg-indigo-600 text-white border-indigo-600'
-                : 'border-gray-200 text-gray-600 hover:border-gray-400'
-            }`}
-          >
-            <span>🏠</span>
-            <div className="text-left">
-              <p>생애최초</p>
-              <p className={`text-xs font-normal ${prefs.is_first_buyer ? 'text-indigo-200' : 'text-gray-400'}`}>주택 미보유</p>
-            </div>
-          </button>
+          {([
+            { key: 'is_newlywed' as const, icon: '💍', label: '신혼부부', desc: '혼인 7년 이내' },
+            { key: 'is_first_buyer' as const, icon: '🏠', label: '생애최초', desc: '현재 주택 미보유' },
+          ] as const).map(({ key, icon, label, desc }) => (
+            <button key={key} onClick={() => setPrefs(p => ({ ...p, [key]: !p[key] }))}
+              className={`flex items-center gap-2.5 px-4 py-3 rounded-xl border text-sm font-medium transition-colors text-left ${
+                prefs[key] ? 'bg-indigo-600 text-white border-indigo-600' : 'border-gray-200 text-gray-600 bg-white hover:border-gray-400'
+              }`}>
+              <span className="text-base">{icon}</span>
+              <div>
+                <p>{label}</p>
+                <p className={`text-xs font-normal ${prefs[key] ? 'text-indigo-200' : 'text-gray-400'}`}>{desc}</p>
+              </div>
+            </button>
+          ))}
         </div>
 
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="text-xs text-gray-500 mb-1 block">무주택 기간 (년)</label>
-            <input
-              type="number"
-              value={prefs.no_home_years || ''}
-              onChange={e => setPrefs(p => ({ ...p, no_home_years: Number(e.target.value) }))}
-              placeholder="예: 3"
-              min={0}
-              max={30}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400"
-            />
+        {/* 출생연도 + 무주택 기간 */}
+        <div className="rounded-xl bg-gray-50 border border-gray-100 p-4 space-y-3">
+          <p className="text-sm font-medium text-gray-700">무주택 기간</p>
+
+          {/* 출생연도 */}
+          <div className="space-y-1">
+            <label className="text-xs text-gray-500 block">출생연도 (입력 시 자동 계산)</label>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                value={prefs.birth_year || ''}
+                onChange={e => {
+                  const year = e.target.value ? Number(e.target.value) : null
+                  setPrefs(p => ({
+                    ...p,
+                    birth_year: year,
+                    no_home_years: year ? calcNoHomeYears(year) : p.no_home_years,
+                  }))
+                }}
+                placeholder="예: 1990"
+                min={1950}
+                max={CURRENT_YEAR - 18}
+                className="w-32 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400"
+              />
+              {age !== null && (
+                <span className="text-sm text-gray-500">만 {age}세</span>
+              )}
+            </div>
           </div>
-          <div>
-            <label className="text-xs text-gray-500 mb-1 block">자녀 수</label>
-            <input
-              type="number"
-              value={prefs.num_children || ''}
-              onChange={e => setPrefs(p => ({ ...p, num_children: Number(e.target.value) }))}
-              placeholder="0"
-              min={0}
-              max={10}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400"
-            />
+
+          {/* 무주택 기간 (자동 계산 + 직접 수정 가능) */}
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <label className="text-xs text-gray-500">무주택 기간</label>
+              {prefs.birth_year && (
+                <span className="text-[11px] px-1.5 py-0.5 rounded bg-indigo-100 text-indigo-600">자동 계산됨 · 직접 수정 가능</span>
+              )}
+            </div>
+            <div className="flex items-center gap-2">
+              <input
+                type="number"
+                value={prefs.no_home_years || ''}
+                onChange={e => setPrefs(p => ({ ...p, no_home_years: Number(e.target.value) }))}
+                placeholder="0"
+                min={0}
+                max={32}
+                step={1}
+                className="w-24 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400"
+              />
+              <span className="text-xs text-gray-400">년</span>
+              {prefs.no_home_years >= 15 && (
+                <span className="text-xs font-medium text-green-600">청약 가점 만점 (32점)</span>
+              )}
+              {prefs.no_home_years > 0 && prefs.no_home_years < 15 && (
+                <span className="text-xs text-gray-400">{15 - prefs.no_home_years}년 더 유지하면 만점</span>
+              )}
+            </div>
+            <p className="text-[11px] text-gray-400">출생연도 입력 시 만 30세 이후 기간으로 자동 계산. 직접 수정하면 입력값이 우선 적용됩니다.</p>
           </div>
         </div>
 
-        {(prefs.is_newlywed || prefs.is_first_buyer) && (
-          <div className="rounded-xl bg-indigo-50 border border-indigo-100 px-4 py-3 text-sm text-indigo-800 space-y-1">
-            <p className="font-semibold">✓ 적용 가능한 우대 상품</p>
+        <NumInput
+          label="자녀 수"
+          value={prefs.num_children}
+          onChange={set('num_children')}
+          unit="명" step={1} placeholder="0"
+          sub="자녀 1명 이상 시 신생아 특례 대출 (금리 1.6~3.3%) 자격 검토"
+        />
+
+        {(prefs.is_newlywed || prefs.is_first_buyer || prefs.num_children > 0) && (
+          <div className="rounded-xl bg-indigo-50 border border-indigo-100 px-4 py-3 space-y-1">
+            <p className="text-sm font-semibold text-indigo-900">✓ 적용 가능한 우대</p>
             {prefs.is_newlywed && prefs.is_first_buyer && (
-              <p>· 신혼부부 생애최초 특별공급 (LTV 최대 80%)</p>
+              <p className="text-xs text-indigo-700">· 디딤돌 신혼생애최초 LTV 80%, 금리 2.15~3.0%, 한도 4억</p>
             )}
-            {prefs.is_newlywed && <p>· 신혼희망타운, 신혼부부 전용 청약</p>}
-            {prefs.is_first_buyer && <p>· 생애최초 취득세 감면, 디딤돌 대출</p>}
-            {prefs.num_children >= 2 && <p>· 다자녀 가구 우선 배정</p>}
+            {prefs.is_first_buyer && (
+              <p className="text-xs text-indigo-700">· 생애최초 취득세 감면 최대 200만원</p>
+            )}
+            {prefs.num_children > 0 && (
+              <p className="text-xs text-indigo-700">· 신생아 특례 대출 금리 1.6~3.3%, 한도 5억 (9억 이하 주택)</p>
+            )}
+            {prefs.is_newlywed && (
+              <p className="text-xs text-indigo-700">· 보금자리론 신혼특례 소득한도 8,500만원</p>
+            )}
           </div>
         )}
       </section>
 
-      {/* 관심 지역 */}
+      {/* ══ 2. 재무 정보 ════════════════════════════════════════════════ */}
+      <section className="space-y-4">
+        <h2 className="font-semibold text-gray-800">재무 정보</h2>
+
+        <div className="grid grid-cols-2 gap-4">
+          <NumInput
+            label="부부합산 연소득"
+            value={prefs.monthly_income}
+            onChange={set('monthly_income')}
+            placeholder="예: 7000"
+            sub="DSR 40% 대출 한도 계산에 사용"
+          />
+          <NumInput
+            label="현재 월 대출 상환액"
+            value={prefs.existing_loan_payment}
+            onChange={set('existing_loan_payment')}
+            unit="만원/월" placeholder="0"
+            sub="기존 대출 있으면 입력 (DSR 한도 차감)"
+          />
+        </div>
+
+        {/* 자기자본 구성 */}
+        <div className="rounded-xl bg-gray-50 border border-gray-100 p-4 space-y-4">
+          <p className="text-sm font-medium text-gray-700">자기자본 구성</p>
+          <div className="grid grid-cols-2 gap-4">
+            <NumInput label="현재 현금·저축" value={prefs.assets} onChange={set('assets')} placeholder="예: 10000" />
+            <NumInput label="전세보증금 회수 예정" value={prefs.deposit_to_recover} onChange={set('deposit_to_recover')} placeholder="0" />
+            <NumInput label="부모·가족 지원 예정" value={prefs.gift_amount} onChange={set('gift_amount')} placeholder="0" />
+            <NumInput label="인테리어 예산 (별도)" value={prefs.renovation_budget} onChange={set('renovation_budget')} placeholder="0" />
+          </div>
+          {selfFunds > 0 && (
+            <div className="flex justify-between items-center border-t border-gray-200 pt-3 text-sm">
+              <span className="text-gray-600">자기자본 합계</span>
+              <span className="font-bold text-gray-900 text-base">{selfFunds.toLocaleString()}만원</span>
+            </div>
+          )}
+        </div>
+
+        <div className="space-y-2">
+          <label className="text-xs text-gray-500 block">신용점수 구간</label>
+          <div className="grid grid-cols-2 gap-2">
+            {CREDIT_SCORE_OPTIONS.map(({ value, label, desc }) => (
+              <button key={value} onClick={() => setPrefs(p => ({ ...p, credit_score_range: value }))}
+                className={`px-3 py-2 rounded-lg border text-left text-sm transition-colors ${
+                  prefs.credit_score_range === value
+                    ? 'bg-indigo-600 text-white border-indigo-600'
+                    : 'border-gray-200 text-gray-600 hover:border-gray-400'
+                }`}>
+                <p className="font-medium">{label}</p>
+                <p className={`text-xs ${prefs.credit_score_range === value ? 'text-indigo-200' : 'text-gray-400'}`}>{desc}</p>
+              </button>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* ══ 3. 구매 가능 금액 (자동 계산) ══════════════════════════════ */}
+      {affordableScenarios.length > 0 && (
+        <section className="space-y-3">
+          <div>
+            <h2 className="font-semibold text-gray-800">구매 가능 금액</h2>
+            <p className="text-xs text-gray-500 mt-0.5">
+              자기자본 <strong>{selfFunds.toLocaleString()}만원</strong> 기준 · 대출 상품별 최대 구매가
+            </p>
+          </div>
+
+          {bestEligible && (
+            <div className="rounded-xl bg-indigo-600 text-white p-4 space-y-1">
+              <p className="text-xs text-indigo-200">{bestEligible.name} ({bestEligible.subName}) 기준 최대</p>
+              <p className="text-2xl font-bold">{priceLabel(bestEligible.maxPrice)}</p>
+              <div className="flex flex-wrap gap-x-4 gap-y-0.5 text-sm text-indigo-100 mt-1">
+                <span>대출 {priceLabel(bestEligible.loanAmount)}</span>
+                <span>월 상환 {bestEligible.monthlyPayment.toLocaleString()}만원</span>
+                <span>금리 {bestEligible.rateRange}</span>
+              </div>
+            </div>
+          )}
+
+          <div className="rounded-xl border border-gray-200 overflow-hidden">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="bg-gray-50 text-xs text-gray-500">
+                  <th className="px-3 py-2 text-left font-medium">대출 상품</th>
+                  <th className="px-3 py-2 text-right font-medium">최대 구매가</th>
+                  <th className="px-3 py-2 text-right font-medium">대출액</th>
+                  <th className="px-3 py-2 text-right font-medium">월 상환</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-gray-100">
+                {affordableScenarios.map(s => (
+                  <tr key={s.id} className={s.eligible ? '' : 'opacity-40 bg-gray-50'}>
+                    <td className="px-3 py-2.5">
+                      <div className="flex items-start gap-1.5">
+                        <span className="text-[11px] mt-0.5 shrink-0">{s.eligible ? '✅' : '❌'}</span>
+                        <div>
+                          <p className="font-medium text-gray-800 leading-tight">{s.name}</p>
+                          <p className="text-[11px] text-gray-400">{s.subName} · {s.rateRange}</p>
+                          {!s.eligible && s.blockedReasons.slice(0, 1).map((r, i) => (
+                            <p key={i} className="text-[11px] text-red-400">· {r}</p>
+                          ))}
+                        </div>
+                      </div>
+                    </td>
+                    <td className="px-3 py-2.5 text-right font-semibold text-gray-900">
+                      {s.eligible && s.maxPrice > 0 ? priceLabel(s.maxPrice) : <span className="text-gray-300 font-normal">—</span>}
+                    </td>
+                    <td className="px-3 py-2.5 text-right text-gray-600">
+                      {s.eligible && s.loanAmount > 0 ? priceLabel(s.loanAmount) : <span className="text-gray-300">—</span>}
+                    </td>
+                    <td className="px-3 py-2.5 text-right text-gray-600">
+                      {s.eligible && s.monthlyPayment > 0
+                        ? `${s.monthlyPayment.toLocaleString()}만원`
+                        : <span className="text-gray-300">—</span>}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+
+          {bestEligible && (
+            <div className="flex items-center justify-between gap-3 rounded-lg bg-amber-50 border border-amber-100 px-4 py-3">
+              <p className="text-sm text-amber-800">
+                <strong>{priceLabel(bestEligible.maxPrice)}</strong>을 예산 상한으로 설정할까요?
+              </p>
+              <button
+                onClick={() => setPrefs(p => ({ ...p, budget_max: bestEligible.maxPrice }))}
+                className="shrink-0 px-3 py-1.5 rounded-lg bg-amber-500 text-white text-xs font-medium hover:bg-amber-600 transition-colors"
+              >
+                적용
+              </button>
+            </div>
+          )}
+
+          <p className="text-[11px] text-gray-400">
+            ※ 취득세·법무사 등 부대비용 별도. 실제 대출은 금융기관 심사에 따라 다름.
+          </p>
+        </section>
+      )}
+
+      {/* ══ 4. 관심 지역 ════════════════════════════════════════════════ */}
       <section className="space-y-3">
         <h2 className="font-semibold text-gray-800">관심 지역</h2>
         <div className="flex flex-wrap gap-2">
           {prefs.regions.map(r => (
             <span key={r} className="flex items-center gap-1 px-2.5 py-1 rounded-full bg-indigo-50 text-indigo-700 text-sm">
               {r}
-              <button onClick={() => removeRegion(r)} className="text-indigo-400 hover:text-indigo-700 ml-0.5">×</button>
+              <button onClick={() => setPrefs(p => ({ ...p, regions: p.regions.filter(x => x !== r) }))}
+                className="text-indigo-400 hover:text-indigo-700 ml-0.5">×</button>
             </span>
           ))}
         </div>
         <div className="flex gap-2">
-          <input
-            value={regionInput}
-            onChange={e => setRegionInput(e.target.value)}
+          <input value={regionInput} onChange={e => setRegionInput(e.target.value)}
             onKeyDown={e => e.key === 'Enter' && addRegion(regionInput)}
-            placeholder="지역 입력 후 Enter (예: 경기 하남)"
-            className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400"
-          />
-          <button
-            onClick={() => addRegion(regionInput)}
-            className="px-3 py-2 rounded-lg bg-gray-100 text-sm text-gray-700 hover:bg-gray-200"
-          >추가</button>
+            placeholder="지역 입력 후 Enter"
+            className="flex-1 border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400" />
+          <button onClick={() => addRegion(regionInput)} className="px-3 py-2 rounded-lg bg-gray-100 text-sm text-gray-700 hover:bg-gray-200">추가</button>
         </div>
         <div className="flex flex-wrap gap-1.5">
           {REGIONS_PRESET.filter(r => !prefs.regions.includes(r)).map(r => (
-            <button
-              key={r}
-              onClick={() => addRegion(r)}
-              className="px-2 py-0.5 rounded-full border border-gray-200 text-xs text-gray-500 hover:border-indigo-300 hover:text-indigo-600"
-            >
-              + {r}
-            </button>
+            <button key={r} onClick={() => addRegion(r)} className="px-2 py-0.5 rounded-full border border-gray-200 text-xs text-gray-500 hover:border-indigo-300 hover:text-indigo-600">+ {r}</button>
           ))}
         </div>
       </section>
 
-      {/* 예산 범위 */}
+      {/* ══ 5. 예산 범위 (매물 필터) ════════════════════════════════════ */}
       <section className="space-y-3">
-        <h2 className="font-semibold text-gray-800">예산 범위</h2>
-        <div className="flex items-center gap-3">
-          <div className="flex-1">
-            <label className="text-xs text-gray-500 mb-1 block">최소 (만원)</label>
-            <input
-              type="number"
-              value={prefs.budget_min}
-              onChange={e => setPrefs(p => ({ ...p, budget_min: Number(e.target.value) }))}
-              step={1000}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400"
-            />
-          </div>
-          <span className="text-gray-400 mt-5">~</span>
-          <div className="flex-1">
-            <label className="text-xs text-gray-500 mb-1 block">최대 (만원)</label>
-            <input
-              type="number"
-              value={prefs.budget_max}
-              onChange={e => setPrefs(p => ({ ...p, budget_max: Number(e.target.value) }))}
-              step={1000}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400"
-            />
-          </div>
+        <div>
+          <h2 className="font-semibold text-gray-800">예산 범위 (매물 필터)</h2>
+          <p className="text-xs text-gray-400 mt-0.5">위 구매 가능 금액을 참고해 설정하세요.</p>
         </div>
-        <p className="text-xs text-gray-400">
-          {prefs.budget_min.toLocaleString()}만원 ~ {prefs.budget_max.toLocaleString()}만원
-          ({Math.round(prefs.budget_max / 10000 * 10) / 10}억 이하)
-        </p>
+        <div className="flex items-center gap-3">
+          {(['budget_min', 'budget_max'] as const).map((k, i) => (
+            <div key={k} className="flex-1">
+              <label className="text-xs text-gray-500 mb-1 block">{i === 0 ? '최소 (만원)' : '최대 (만원)'}</label>
+              <input type="number" value={prefs[k]}
+                onChange={e => setPrefs(p => ({ ...p, [k]: Number(e.target.value) }))}
+                step={1000}
+                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400" />
+            </div>
+          ))}
+          <span className="text-gray-400 mt-5">~</span>
+        </div>
       </section>
 
-      {/* 매물 유형 */}
+      {/* ══ 6. 관심 매물 유형 ═══════════════════════════════════════════ */}
       <section className="space-y-3">
         <h2 className="font-semibold text-gray-800">관심 매물 유형</h2>
         <div className="flex gap-3">
           {PROPERTY_TYPE_OPTIONS.map(({ value, label }) => (
-            <button
-              key={value}
-              onClick={() => toggleType(value)}
+            <button key={value} onClick={() => toggleType(value)}
               className={`px-4 py-2 rounded-lg border text-sm transition-colors ${
                 prefs.property_types.includes(value)
                   ? 'bg-indigo-600 text-white border-indigo-600'
                   : 'border-gray-200 text-gray-600 hover:border-gray-400'
-              }`}
-            >
-              {label}
-            </button>
+              }`}>{label}</button>
           ))}
         </div>
       </section>
 
-      {/* 재무 정보 */}
-      <section className="space-y-3">
-        <h2 className="font-semibold text-gray-800">재무 정보 <span className="text-xs text-gray-400 font-normal">(대출 한도 계산용, 선택)</span></h2>
-        <div className="grid grid-cols-2 gap-4">
-          <div>
-            <label className="text-xs text-gray-500 mb-1 block">부부합산 연소득 (만원)</label>
-            <input
-              type="number"
-              value={prefs.monthly_income || ''}
-              onChange={e => setPrefs(p => ({ ...p, monthly_income: Number(e.target.value) }))}
-              placeholder="예: 8000"
-              step={100}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400"
-            />
-          </div>
-          <div>
-            <label className="text-xs text-gray-500 mb-1 block">현재 보유 자산 (만원)</label>
-            <input
-              type="number"
-              value={prefs.assets || ''}
-              onChange={e => setPrefs(p => ({ ...p, assets: Number(e.target.value) }))}
-              placeholder="예: 15000"
-              step={100}
-              className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400"
-            />
-          </div>
-        </div>
-
-        {prefs.monthly_income > 0 && prefs.budget_max > 0 && (
-          <div className="rounded-xl bg-blue-50 border border-blue-100 px-4 py-3 text-sm text-blue-800 space-y-1.5">
-            <p className="font-semibold">📊 대출 가능 추정</p>
-            <p>DSR 40% 기준 최대 대출: 약 {maxLoan.toLocaleString()}만원</p>
-            <p>LTV {Math.round(eligibleLtv * 100)}% 기준 최대 대출: 약 {ltvMax.toLocaleString()}만원</p>
-            <p className="font-medium border-t border-blue-200 pt-1.5">
-              실질 한도: 약 {effectiveLoan.toLocaleString()}만원
-              {prefs.assets > 0 && ` (자기자본 ${Math.max(0, prefs.budget_max - effectiveLoan).toLocaleString()}만원 필요)`}
-            </p>
-          </div>
-        )}
-      </section>
-
-      {/* 저장 */}
-      <div className="flex items-center gap-3 pt-2">
-        <button
-          onClick={save}
-          disabled={saving}
-          className="px-6 py-2.5 rounded-lg bg-gray-900 text-white text-sm font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors"
-        >
+      {/* ══ 저장 ════════════════════════════════════════════════════════ */}
+      <div className="flex items-center gap-3 pb-4">
+        <button onClick={save} disabled={saving}
+          className="px-6 py-2.5 rounded-lg bg-gray-900 text-white text-sm font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors">
           {saving ? '저장 중...' : '저장'}
         </button>
-        {saved && <span className="text-sm text-green-600">✓ 저장되었습니다</span>}
+        {saved && <span className="text-sm text-green-600 font-medium">✓ 저장되었습니다</span>}
       </div>
     </main>
   )

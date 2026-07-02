@@ -3,12 +3,18 @@ import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import EligibilityBadge from '@/components/properties/EligibilityBadge'
 import SubscriptionCountdown from '@/components/properties/SubscriptionCountdown'
-import LoanCalculator from '@/components/properties/LoanCalculator'
 import KakaoMapWrapper from '@/components/properties/KakaoMapWrapper'
+import LoanEligibilityPanel from '@/components/properties/LoanEligibilityPanel'
+import TotalCostCard from '@/components/properties/TotalCostCard'
+import RegulationNotice from '@/components/properties/RegulationNotice'
+import SubscriptionScoreCard from '@/components/properties/SubscriptionScoreCard'
+import LocationEnvironmentCard from '@/components/properties/LocationEnvironmentCard'
+import { calcLoanProducts, type UserFinance } from '@/lib/koreanRealEstate'
 
 export const dynamic = 'force-dynamic'
 
 const TYPE_LABEL: Record<string, string> = { sale: '매매', auction: '경매', subscription: '청약' }
+const PREF_ID = '00000000-0000-0000-0000-000000000001'
 
 async function getProperty(id: string) {
   const db = createServerClient()
@@ -19,19 +25,54 @@ async function getProperty(id: string) {
   return data as any | null
 }
 
+async function getPrefs() {
+  try {
+    const db = createServerClient()
+    const { data } = await db.from('user_preferences').select('*').eq('id', PREF_ID).single()
+    return data
+  } catch { return null }
+}
+
 export default async function PropertyDetailPage({
   params,
 }: {
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const property = await getProperty(id)
+  const [property, prefs] = await Promise.all([getProperty(id), getPrefs()])
   if (!property) notFound()
 
   const complex = property.complexes
   const score = property.property_scores
   const loc = complex?.location_scores
   const typeLabel = TYPE_LABEL[property.property_type] ?? property.property_type
+
+  // Map prefs to UserFinance
+  const finance: UserFinance | null = prefs ? {
+    income: prefs.monthly_income ?? 0,
+    assets: prefs.assets ?? 0,
+    depositToRecover: prefs.deposit_to_recover ?? 0,
+    giftAmount: prefs.gift_amount ?? 0,
+    existingLoanPayment: prefs.existing_loan_payment ?? 0,
+    isNewlywed: prefs.is_newlywed ?? false,
+    isFirstBuyer: prefs.is_first_buyer ?? false,
+    noHomeYears: prefs.no_home_years ?? 0,
+    numChildren: prefs.num_children ?? 0,
+  } : null
+
+  // Compute best loan for TotalCostCard
+  const price = property.price ?? 0
+  const sigungu = complex?.sigungu ?? null
+  let effectiveLoan = 0
+  if (finance && price > 0) {
+    const products = calcLoanProducts(price, finance, sigungu)
+    const best = products.find(p => p.eligible)
+    if (best) effectiveLoan = best.calcLoan(price)
+  }
+  const selfFunds = finance
+    ? (finance.assets + finance.depositToRecover + finance.giftAmount)
+    : 0
+  const renovationBudget = prefs?.renovation_budget ?? 0
 
   const scoreItems = score
     ? [
@@ -94,6 +135,9 @@ export default async function PropertyDetailPage({
         )}
       </div>
 
+      {/* 규제 안내 */}
+      <RegulationNotice sigungu={complex?.sigungu} />
+
       {/* 청약 일정 */}
       {property.property_type === 'subscription' &&
         (property.subscription_start || property.subscription_end) && (
@@ -130,8 +174,28 @@ export default async function PropertyDetailPage({
         </div>
       )}
 
-      {/* 대출 계산기 */}
-      {property.price && <LoanCalculator price={property.price} />}
+      {/* 대출 적격성 분석 */}
+      {price > 0 && <LoanEligibilityPanel price={price} finance={finance} sigungu={sigungu} />}
+
+      {/* 총 소요 비용 */}
+      {price > 0 && (
+        <TotalCostCard
+          price={price}
+          isFirstBuyer={finance?.isFirstBuyer ?? false}
+          selfFunds={selfFunds}
+          renovationBudget={renovationBudget}
+          effectiveLoan={effectiveLoan}
+        />
+      )}
+
+      {/* 청약 가점 (청약 타입 + 내 정보 있을 때만) */}
+      {property.property_type === 'subscription' && finance && (
+        <SubscriptionScoreCard
+          noHomeYears={finance.noHomeYears}
+          numChildren={finance.numChildren}
+          isNewlywed={finance.isNewlywed}
+        />
+      )}
 
       {/* AI 점수 */}
       {score && (
@@ -203,50 +267,33 @@ export default async function PropertyDetailPage({
         </section>
       )}
 
-      {/* 입지 정보 */}
-      {loc && (
-        <section className="space-y-2">
-          <h2 className="font-semibold text-gray-800">입지 정보</h2>
-          <div className="grid grid-cols-2 gap-2">
-            {loc.nearest_subway && (
-              <div className="flex items-center gap-1.5 text-sm text-gray-600">
-                <span>🚇</span>
-                <span>{loc.nearest_subway} ({loc.nearest_subway_min ?? '?'}분)</span>
-              </div>
-            )}
-            {loc.mart_min && (
-              <div className="flex items-center gap-1.5 text-sm text-gray-600">
-                <span>🛒</span><span>마트 {loc.mart_min}분</span>
-              </div>
-            )}
-            {loc.hospital_min && (
-              <div className="flex items-center gap-1.5 text-sm text-gray-600">
-                <span>🏥</span><span>병원 {loc.hospital_min}분</span>
-              </div>
-            )}
-            {loc.park_min && (
-              <div className="flex items-center gap-1.5 text-sm text-gray-600">
-                <span>🌳</span><span>공원 {loc.park_min}분</span>
-              </div>
+      {/* 위치 + 주변 환경 통합 섹션 */}
+      {complex?.lat && complex?.lng && (
+        <section className="space-y-4">
+          <div>
+            <h2 className="font-semibold text-gray-800">위치</h2>
+            {complex.road_address && (
+              <p className="text-sm text-gray-500 mt-0.5">{complex.road_address}</p>
             )}
           </div>
-        </section>
-      )}
-
-      {/* 지도 */}
-      {complex?.lat && complex?.lng && (
-        <section className="space-y-2">
-          <h2 className="font-semibold text-gray-800">위치</h2>
-          {complex.road_address && (
-            <p className="text-sm text-gray-500">{complex.road_address}</p>
-          )}
           <KakaoMapWrapper
             lat={Number(complex.lat)}
             lng={Number(complex.lng)}
             name={complex.name}
+            locationInfo={loc ? {
+              nearest_subway: loc.nearest_subway,
+              nearest_subway_min: loc.nearest_subway_min,
+              mart_min: loc.mart_min,
+              hospital_min: loc.hospital_min,
+              park_min: loc.park_min,
+              school_count_1km: loc.school_count_1km,
+            } : null}
           />
         </section>
       )}
+
+      {/* 주변 환경 상세 */}
+      {loc && <LocationEnvironmentCard loc={loc} />}
 
       {/* 원문 링크 */}
       <a
