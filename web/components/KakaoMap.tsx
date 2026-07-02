@@ -74,7 +74,7 @@ export default function NaverMap({ lat, lng, name }: Props) {
     }
 
     const script = document.createElement('script')
-    script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpKeyId=${clientId}`
+    script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${clientId}`
     script.async = true
     script.addEventListener('load', initMap)
     script.addEventListener('error', () =>
