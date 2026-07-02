@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import Nav from '@/components/Nav'
 import './globals.css'
+import 'leaflet/dist/leaflet.css'
 
 export const metadata: Metadata = {
   title: '부동산AI — 신혼부부 맞춤 부동산 어드바이저',
