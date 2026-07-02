@@ -1,7 +1,4 @@
 'use client'
-import { useEffect, useRef, useState } from 'react'
-
-declare global { interface Window { L: any } }
 
 interface Props {
   lat: number
@@ -17,124 +14,97 @@ interface Props {
   } | null
 }
 
-const LEAFLET_CSS = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.css'
-const LEAFLET_JS  = 'https://cdnjs.cloudflare.com/ajax/libs/leaflet/1.9.4/leaflet.min.js'
+const TILE = 256
+const MAP_W = 640
+const MAP_H = 320
+const ZOOM = 16
+
+function latLngToPixel(lat: number, lng: number) {
+  const n = Math.pow(2, ZOOM)
+  const px = (lng + 180) / 360 * n * TILE
+  const latRad = lat * Math.PI / 180
+  const py = (1 - Math.log(Math.tan(latRad) + 1 / Math.cos(latRad)) / Math.PI) / 2 * n * TILE
+  return { px, py }
+}
+
+function sub(tx: number, ty: number) {
+  return ['a', 'b', 'c'][(Math.abs(tx) + Math.abs(ty)) % 3]
+}
 
 export default function PropertyMap({ lat, lng, name }: Props) {
-  const containerRef = useRef<HTMLDivElement>(null)
-  const mapRef       = useRef<any>(null)
-  const [status, setStatus] = useState<'loading' | 'ready' | 'error'>('loading')
+  const { px, py } = latLngToPixel(lat, lng)
 
-  useEffect(() => {
-    if (mapRef.current) return
+  const originPx = px - MAP_W / 2
+  const originPy = py - MAP_H / 2
 
-    function initMap() {
-      const el = containerRef.current
-      if (!el || mapRef.current) return
-      try {
-        const L   = window.L
-        const map = L.map(el).setView([lat, lng], 16)
-        mapRef.current = map
+  const tileXMin = Math.floor(originPx / TILE)
+  const tileYMin = Math.floor(originPy / TILE)
+  const tileXMax = Math.floor((originPx + MAP_W) / TILE)
+  const tileYMax = Math.floor((originPy + MAP_H) / TILE)
 
-        L.tileLayer('https://{s}.tile.openstreetmap.org/{z}/{x}/{y}.png', {
-          attribution: '© OpenStreetMap',
-          maxZoom: 19,
-        }).addTo(map)
-
-        const safe = name.replace(/</g, '&lt;').replace(/>/g, '&gt;')
-        L.marker([lat, lng], {
-          icon: L.divIcon({
-            className: '',
-            iconAnchor: [50, 52],
-            html:
-              `<div style="display:flex;flex-direction:column;align-items:center;gap:3px">` +
-              `<div style="padding:5px 14px;background:#1E3A5F;color:#fff;border-radius:20px;font-size:12px;font-weight:700;white-space:nowrap;box-shadow:0 2px 8px rgba(0,0,0,.3)">${safe}</div>` +
-              `<div style="width:0;height:0;border-left:7px solid transparent;border-right:7px solid transparent;border-top:9px solid #1E3A5F"></div>` +
-              `</div>`,
-          }),
-        }).addTo(map)
-
-        setStatus('ready')
-      } catch (e) {
-        setStatus('error')
-      }
+  const tiles: { tx: number; ty: number; left: number; top: number }[] = []
+  for (let ty = tileYMin; ty <= tileYMax; ty++) {
+    for (let tx = tileXMin; tx <= tileXMax; tx++) {
+      tiles.push({ tx, ty, left: tx * TILE - originPx, top: ty * TILE - originPy })
     }
+  }
 
-    // CSS
-    if (!document.getElementById('leaflet-css')) {
-      const link = document.createElement('link')
-      link.id   = 'leaflet-css'
-      link.rel  = 'stylesheet'
-      link.href = LEAFLET_CSS
-      document.head.appendChild(link)
-    }
-
-    // JS
-    if (window.L) {
-      initMap()
-      return
-    }
-
-    if (!document.getElementById('leaflet-js')) {
-      const script  = document.createElement('script')
-      script.id     = 'leaflet-js'
-      script.src    = LEAFLET_JS
-      script.onload = initMap
-      script.onerror = () => setStatus('error')
-      document.head.appendChild(script)
-    } else {
-      // script tag exists but L not ready yet — wait
-      const id = setInterval(() => {
-        if (window.L) { clearInterval(id); initMap() }
-      }, 100)
-    }
-
-    return () => {
-      if (mapRef.current) {
-        mapRef.current.remove()
-        mapRef.current = null
-      }
-    }
-  }, [lat, lng, name])
+  const markerLeft = px - originPx
+  const markerTop  = py - originPy
 
   const naverUrl = `https://map.naver.com/p/search/${encodeURIComponent(name)}`
 
   return (
     <div className="space-y-2">
-      <div style={{ position: 'relative', borderRadius: '12px', overflow: 'hidden' }}>
-        <div
-          ref={containerRef}
-          style={{ width: '100%', height: '320px', background: '#e5e7eb' }}
-        />
-        {status === 'loading' && (
+      <div style={{ position: 'relative', width: '100%', height: MAP_H, borderRadius: 12, overflow: 'hidden', background: '#e5e7eb' }}>
+
+        {/* OSM 타일 이미지 */}
+        {tiles.map(({ tx, ty, left, top }) => (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            key={`${tx}-${ty}`}
+            src={`https://${sub(tx, ty)}.tile.openstreetmap.org/${ZOOM}/${tx}/${ty}.png`}
+            alt=""
+            width={TILE}
+            height={TILE}
+            style={{ position: 'absolute', left, top, display: 'block' }}
+          />
+        ))}
+
+        {/* 마커 */}
+        <div style={{
+          position: 'absolute',
+          left: markerLeft - 50,
+          top: markerTop - 52,
+          display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 3,
+          pointerEvents: 'none', zIndex: 10,
+        }}>
           <div style={{
-            position: 'absolute', inset: 0, display: 'flex',
-            alignItems: 'center', justifyContent: 'center',
-            background: '#e5e7eb', color: '#9ca3af', fontSize: '13px',
+            padding: '5px 14px', background: '#1E3A5F', color: '#fff',
+            borderRadius: 20, fontSize: 12, fontWeight: 700,
+            whiteSpace: 'nowrap', boxShadow: '0 2px 8px rgba(0,0,0,.3)',
           }}>
-            지도 로딩 중…
+            {name}
           </div>
-        )}
-        {status === 'error' && (
           <div style={{
-            position: 'absolute', inset: 0, display: 'flex', flexDirection: 'column',
-            alignItems: 'center', justifyContent: 'center', gap: '12px',
-            background: '#f3f4f6', color: '#6b7280', fontSize: '13px',
-          }}>
-            <span>지도를 불러올 수 없습니다</span>
-            <a href={naverUrl} target="_blank" rel="noopener noreferrer"
-              style={{ color: '#059669', textDecoration: 'underline' }}>
-              네이버 지도에서 보기 →
-            </a>
-          </div>
-        )}
+            width: 0, height: 0,
+            borderLeft: '7px solid transparent', borderRight: '7px solid transparent',
+            borderTop: '9px solid #1E3A5F',
+          }} />
+        </div>
+
+        {/* 저작권 */}
+        <div style={{
+          position: 'absolute', bottom: 4, right: 6,
+          fontSize: 10, color: '#555', background: 'rgba(255,255,255,.75)',
+          padding: '1px 4px', borderRadius: 2, zIndex: 10,
+        }}>
+          © OpenStreetMap
+        </div>
       </div>
-      <a
-        href={naverUrl}
-        target="_blank"
-        rel="noopener noreferrer"
-        style={{ fontSize: '12px', color: '#9ca3af' }}
-      >
+
+      <a href={naverUrl} target="_blank" rel="noopener noreferrer"
+        className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-green-600 transition-colors">
         네이버 지도에서 보기 ↗
       </a>
     </div>
