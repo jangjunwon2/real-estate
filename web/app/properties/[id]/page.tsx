@@ -271,7 +271,7 @@ export default async function PropertyDetailPage({
       {complex?.lat && complex?.lng && (
         <section className="space-y-4">
           <div>
-            <h2 className="font-semibold text-gray-800">위치 📍v2</h2>
+            <h2 className="font-semibold text-gray-800">위치</h2>
             {complex.road_address && (
               <p className="text-sm text-gray-500 mt-0.5">{complex.road_address}</p>
             )}
