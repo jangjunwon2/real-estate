@@ -1,11 +1,13 @@
 'use client'
 import { useState } from 'react'
+import { formatPrice } from '@/lib/formatPrice'
+import { DSR } from '@/lib/regulations'
 
 interface Props {
   price: number
 }
 
-const LOAN_FACTOR = 237 // 연 3%, 30년 원리금균등 역산 계수 (월상환 × 237 ≈ 원금)
+const LOAN_FACTOR = 237 // 연 3%, 30년 원리금균등 역산 계수
 const LTV_FIRST_BUYER = 0.8
 const LTV_MAX_AMOUNT = 50000 // 생애최초 LTV 5억 한도 (만원)
 
@@ -13,8 +15,12 @@ export default function LoanCalculator({ price }: Props) {
   const [income, setIncome] = useState('')
 
   const incomeNum = Number(income)
-  const maxMonthlyRaw = incomeNum > 0 ? Math.floor((incomeNum * 10000 * 0.4) / 12) : 0
-  const dsrMaxLoan = maxMonthlyRaw > 0 ? Math.floor((maxMonthlyRaw * LOAN_FACTOR) / 10000) : 0
+  const maxMonthlyRaw = incomeNum > 0
+    ? Math.floor((incomeNum * 10000 * DSR.bankRate) / 12)
+    : 0
+  const dsrMaxLoan = maxMonthlyRaw > 0
+    ? Math.floor((maxMonthlyRaw * LOAN_FACTOR) / 10000)
+    : 0
   const ltvMax = Math.min(Math.floor(price * LTV_FIRST_BUYER), LTV_MAX_AMOUNT)
   const effectiveLoan = Math.min(dsrMaxLoan, ltvMax)
   const selfFund = Math.max(0, price - effectiveLoan)
@@ -25,7 +31,7 @@ export default function LoanCalculator({ price }: Props) {
       <div>
         <h2 className="text-sm font-semibold text-gray-800">대출 가능 금액 계산</h2>
         <p className="text-xs text-gray-400 mt-0.5">
-          DSR 40% · 생애최초 LTV 80% (5억 한도) · 금리 3%, 30년 기준
+          DSR {Math.round(DSR.bankRate * 100)}% · 생애최초 LTV 80% (5억 한도) · 금리 3%, 30년 기준
         </p>
       </div>
 
@@ -53,13 +59,13 @@ export default function LoanCalculator({ price }: Props) {
           <div className="rounded-lg bg-white border p-2.5 text-center">
             <p className="text-[10px] text-gray-400">최대 대출</p>
             <p className="text-sm font-bold text-indigo-600 mt-0.5">
-              {effectiveLoan.toLocaleString()}만원
+              {formatPrice(effectiveLoan)}
             </p>
           </div>
           <div className="rounded-lg bg-white border p-2.5 text-center">
             <p className="text-[10px] text-gray-400">필요 자기자금</p>
             <p className={`text-sm font-bold mt-0.5 ${isShortfall ? 'text-red-600' : 'text-green-600'}`}>
-              {selfFund.toLocaleString()}만원
+              {formatPrice(selfFund)}
             </p>
           </div>
         </div>
@@ -67,7 +73,7 @@ export default function LoanCalculator({ price }: Props) {
 
       {incomeNum > 0 && dsrMaxLoan < ltvMax && (
         <p className="text-xs text-amber-600">
-          ※ DSR 한도({dsrMaxLoan.toLocaleString()}만원)가 LTV 한도보다 낮아 DSR 기준이 적용됩니다.
+          ※ DSR 한도({formatPrice(dsrMaxLoan)})가 LTV 한도보다 낮아 DSR 기준이 적용됩니다.
         </p>
       )}
     </section>

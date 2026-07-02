@@ -1,6 +1,7 @@
 import { createServerClient } from '@/lib/supabase'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
+import { formatPrice } from '@/lib/formatPrice'
 import EligibilityBadge from '@/components/properties/EligibilityBadge'
 import SubscriptionCountdown from '@/components/properties/SubscriptionCountdown'
 import KakaoMapWrapper from '@/components/properties/KakaoMapWrapper'
@@ -112,7 +113,7 @@ export default async function PropertyDetailPage({
         {property.price && (
           <div className="rounded-lg border p-3">
             <p className="text-xs text-gray-400">가격</p>
-            <p className="font-semibold mt-0.5 text-sm">{property.price.toLocaleString()}만원</p>
+            <p className="font-semibold mt-0.5 text-sm">{formatPrice(property.price)}</p>
           </div>
         )}
         {property.area_sqm && (

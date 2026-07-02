@@ -1,4 +1,5 @@
 import type { Property } from '@/types'
+import { formatPrice } from '@/lib/formatPrice'
 
 const TYPE_LABEL: Record<string, string> = {
   sale: '매매',
@@ -44,7 +45,7 @@ export default function PropertyCard({ property }: { property: Property }) {
       {/* 메타 */}
       <div className="flex items-center gap-2 text-xs text-gray-600 mb-3">
         <span className="px-1.5 py-0.5 rounded bg-gray-100 font-medium">{typeLabel}</span>
-        {property.price && <span className="font-medium">{property.price.toLocaleString()}만원</span>}
+        {property.price && <span className="font-medium">{formatPrice(property.price)}</span>}
         {property.area_sqm && <span>{property.area_sqm}m²</span>}
         {property.floor && <span>{property.floor}층</span>}
       </div>

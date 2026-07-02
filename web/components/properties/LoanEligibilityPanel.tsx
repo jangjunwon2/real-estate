@@ -1,4 +1,5 @@
 import { calcLoanProducts, calcMonthlyPayment, detectZoneType, type UserFinance } from '@/lib/koreanRealEstate'
+import { formatPrice } from '@/lib/formatPrice'
 import Link from 'next/link'
 
 interface Props {
@@ -37,10 +38,10 @@ export default function LoanEligibilityPanel({ price, finance, sigungu }: Props)
         {finance.isNewlywed && <span className="text-[11px] px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">💍 신혼부부</span>}
         {finance.isFirstBuyer && <span className="text-[11px] px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">🏠 생애최초</span>}
         {finance.numChildren > 0 && <span className="text-[11px] px-2 py-0.5 rounded-full bg-indigo-100 text-indigo-700">👶 자녀 {finance.numChildren}명</span>}
-        <span className="text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">연소득 {finance.income.toLocaleString()}만원</span>
+        <span className="text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">연소득 {formatPrice(finance.income)}</span>
         {finance.existingLoanPayment > 0 && (
           <span className="text-[11px] px-2 py-0.5 rounded-full bg-yellow-100 text-yellow-700">
-            기존 상환 월 {finance.existingLoanPayment.toLocaleString()}만원
+            기존 상환 월 {formatPrice(finance.existingLoanPayment)}
           </span>
         )}
         {zone !== 'none' && (
@@ -55,12 +56,12 @@ export default function LoanEligibilityPanel({ price, finance, sigungu }: Props)
         <div className="rounded-lg bg-indigo-600 text-white p-3.5 flex justify-between items-center">
           <div>
             <p className="text-xs text-indigo-200">{best?.name} ({best?.subName}) 기준</p>
-            <p className="text-lg font-bold mt-0.5">월 {bestMonthly.toLocaleString()}만원</p>
+            <p className="text-lg font-bold mt-0.5">월 {formatPrice(bestMonthly)}</p>
             <p className="text-xs text-indigo-200 mt-0.5">30년 원리금균등 · {best?.rateRange}</p>
           </div>
           <div className="text-right">
             <p className="text-xs text-indigo-200">대출 가능액</p>
-            <p className="text-base font-semibold">{bestLoan.toLocaleString()}만원</p>
+            <p className="text-base font-semibold">{formatPrice(bestLoan)}</p>
           </div>
         </div>
       )}
@@ -90,15 +91,15 @@ export default function LoanEligibilityPanel({ price, finance, sigungu }: Props)
                     <span className="text-xs text-gray-500">{p.subName}</span>
                     {isBest && <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-600 text-white">추천</span>}
                   </div>
-                  <p className="text-xs text-gray-400 mt-0.5">금리 {p.rateRange} · LTV {Math.round(p.ltvRate * 100)}% · 한도 {p.maxAmount >= 999999 ? '제한없음' : `${p.maxAmount.toLocaleString()}만원`}</p>
+                  <p className="text-xs text-gray-400 mt-0.5">금리 {p.rateRange} · LTV {Math.round(p.ltvRate * 100)}% · 한도 {p.maxAmount >= 999999 ? '제한없음' : formatPrice(p.maxAmount)}</p>
                   {!p.eligible && p.blockedReasons.map((r, i) => (
                     <p key={i} className="text-xs text-red-500 mt-0.5">· {r}</p>
                   ))}
                 </div>
                 {p.eligible && loan > 0 && (
                   <div className="text-right shrink-0">
-                    <p className="text-sm font-bold text-indigo-700">{loan.toLocaleString()}만원</p>
-                    <p className="text-[11px] text-gray-500">월 {monthly.toLocaleString()}만원</p>
+                    <p className="text-sm font-bold text-indigo-700">{formatPrice(loan)}</p>
+                    <p className="text-[11px] text-gray-500">월 {formatPrice(monthly)}</p>
                   </div>
                 )}
               </div>
