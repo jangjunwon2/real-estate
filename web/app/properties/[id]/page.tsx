@@ -17,18 +17,15 @@ export const dynamic = 'force-dynamic'
 const TYPE_LABEL: Record<string, string> = { sale: '매매', auction: '경매', subscription: '청약' }
 const PREF_ID = '00000000-0000-0000-0000-000000000001'
 
-// 매물 타입별 네이버 부동산 탭 URL — 단지명 검색으로 직접 이동
-function getNaverUrl(propertyType: string, complexName: string): string {
-  const q = encodeURIComponent(complexName)
-  if (propertyType === 'auction') return `https://new.land.naver.com/auction?query=${q}`
-  if (propertyType === 'subscription') return `https://new.land.naver.com/subscription?query=${q}`
-  return `https://new.land.naver.com/search?query=${q}`
+// 네이버 부동산은 /search?query= 만 지원 — 타입 무관하게 단지명 검색
+function getNaverUrl(complexName: string): string {
+  return `https://new.land.naver.com/search?query=${encodeURIComponent(complexName)}`
 }
 
 const NAVER_BUTTON_LABEL: Record<string, string> = {
-  auction:      '네이버 경매에서 확인하기',
-  subscription: '네이버 청약에서 확인하기',
-  sale:         '네이버 부동산에서 보기',
+  auction:      '네이버 부동산에서 단지 검색 (경매 탭 확인)',
+  subscription: '네이버 부동산에서 단지 검색 (분양 탭 확인)',
+  sale:         '네이버 부동산에서 단지 검색',
 }
 
 async function getProperty(id: string) {
@@ -313,7 +310,7 @@ export default async function PropertyDetailPage({
       {/* 원문 링크 — 매물 타입별 네이버 부동산 탭으로 직접 이동 */}
       {complex?.name && (
         <a
-          href={getNaverUrl(property.property_type, complex.name)}
+          href={getNaverUrl(complex.name)}
           target="_blank"
           rel="noopener noreferrer"
           className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors"
