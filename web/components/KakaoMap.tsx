@@ -18,7 +18,8 @@ export default function PropertyMap({ lat, lng, name }: Props) {
   const delta = 0.005
   const bbox = `${lng - delta},${lat - delta},${lng + delta},${lat + delta}`
   const src = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat},${lng}`
-  const naverUrl = `https://map.naver.com/p/search/${encodeURIComponent(name)}`
+  // ?c=경도,위도,줌,rotation,pitch,pan,maptype — 좌표 기반으로 정확한 위치 이동
+  const naverUrl = `https://map.naver.com/p/?c=${lng},${lat},15,0,0,0,dh&query=${encodeURIComponent(name)}`
 
   return (
     <div className="space-y-2">
