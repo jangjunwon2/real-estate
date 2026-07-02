@@ -93,6 +93,15 @@ export default function PropertyMap({ lat, lng, name }: Props) {
           }} />
         </div>
 
+        {/* 진단: 컴포넌트 렌더 확인 */}
+        <div style={{
+          position: 'absolute', top: 8, left: 8, zIndex: 20,
+          background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 11,
+          padding: '3px 8px', borderRadius: 4,
+        }}>
+          lat:{lat.toFixed(4)} lng:{lng.toFixed(4)} / tiles:{tiles.length}
+        </div>
+
         {/* 저작권 */}
         <div style={{
           position: 'absolute', bottom: 4, right: 6,
