@@ -17,17 +17,16 @@ export const dynamic = 'force-dynamic'
 const TYPE_LABEL: Record<string, string> = { sale: '매매', auction: '경매', subscription: '청약' }
 const PREF_ID = '00000000-0000-0000-0000-000000000001'
 
-// source_url이 세션 기반(.laf/.do)이면 직접 링크 불가 — 공식 홈 URL로 대체
-function getExternalUrl(source: string, sourceUrl: string): string {
-  if (source === 'court') return 'https://www.courtauction.go.kr/'
-  if (source === 'applyhome') return 'https://www.applyhome.co.kr/ai/aia/selectSubscrptHouseList.do'
-  return sourceUrl
+// 단지명으로 네이버 부동산 검색 URL 생성 (경매·청약·매매 모두 단지 페이지에서 확인 가능)
+function naverSearchUrl(complexName: string): string {
+  return `https://new.land.naver.com/search?query=${encodeURIComponent(complexName)}`
 }
 
-function getExternalLabel(source: string): string {
-  if (source === 'court') return '법원경매정보에서 찾기 →'
-  if (source === 'applyhome') return '청약홈에서 확인하기 →'
-  return '네이버 부동산에서 보기 →'
+// 매물 타입별 공식 출처 사이트 정보
+const SOURCE_SITES: Record<string, { url: string; label: string }> = {
+  court:     { url: 'https://www.courtauction.go.kr/',                                     label: '법원경매정보' },
+  applyhome: { url: 'https://www.applyhome.co.kr/ai/aia/selectSubscrptHouseList.do',       label: '청약홈 목록' },
+  naver:     { url: 'https://new.land.naver.com/',                                          label: '네이버 부동산' },
 }
 
 async function getProperty(id: string) {
@@ -310,14 +309,30 @@ export default async function PropertyDetailPage({
       {loc && <LocationEnvironmentCard loc={loc} />}
 
       {/* 원문 링크 */}
-      <a
-        href={getExternalUrl(property.source, property.source_url)}
-        target="_blank"
-        rel="noopener noreferrer"
-        className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors"
-      >
-        {getExternalLabel(property.source)}
-      </a>
+      <div className="space-y-2">
+        {/* 메인: 단지명으로 네이버 부동산 검색 — 경매·청약·매매 모두 단지 페이지에서 확인 */}
+        {complex?.name && (
+          <a
+            href={naverSearchUrl(complex.name)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors"
+          >
+            네이버 부동산에서 '{complex.name}' 검색 →
+          </a>
+        )}
+        {/* 보조: 공식 원본 사이트 (경매·청약은 홈 페이지) */}
+        {SOURCE_SITES[property.source] && (
+          <a
+            href={SOURCE_SITES[property.source].url}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 w-full py-2 rounded-xl border border-gray-300 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
+          >
+            {SOURCE_SITES[property.source].label} 바로가기 ↗
+          </a>
+        )}
+      </div>
     </main>
   )
 }
