@@ -56,6 +56,10 @@ export default function PropertyMap({ lat, lng, name }: Props) {
 
   return (
     <div className="space-y-2">
+      {/* ▼▼▼ 진단 배너 — 지도 나오면 삭제 ▼▼▼ */}
+      <div style={{ background: '#facc15', color: '#000', padding: '6px 12px', borderRadius: 8, fontSize: 12, fontWeight: 700 }}>
+        🗺 MAP RENDER OK · lat {lat} · lng {lng} · tiles {tiles.length}
+      </div>
       <div style={{ position: 'relative', width: '100%', height: MAP_H, borderRadius: 12, overflow: 'hidden', background: '#e5e7eb' }}>
 
         {/* OSM 타일 이미지 */}
@@ -91,15 +95,6 @@ export default function PropertyMap({ lat, lng, name }: Props) {
             borderLeft: '7px solid transparent', borderRight: '7px solid transparent',
             borderTop: '9px solid #1E3A5F',
           }} />
-        </div>
-
-        {/* 진단: 컴포넌트 렌더 확인 */}
-        <div style={{
-          position: 'absolute', top: 8, left: 8, zIndex: 20,
-          background: 'rgba(0,0,0,0.6)', color: '#fff', fontSize: 11,
-          padding: '3px 8px', borderRadius: 4,
-        }}>
-          lat:{lat.toFixed(4)} lng:{lng.toFixed(4)} / tiles:{tiles.length}
         </div>
 
         {/* 저작권 */}
