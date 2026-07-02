@@ -43,8 +43,15 @@ export default function NaverMap({ lat, lng, name }: Props) {
     }
     if (!containerRef.current) return
 
+    let tid: ReturnType<typeof setTimeout>
+
     function initMap() {
       if (!containerRef.current) return
+      // 5초 안에 지도 생성 안 되면 도메인 문제로 판단
+      tid = setTimeout(() => {
+        const host = window.location.origin
+        setError(`도메인 미등록 오류\nNCP 콘솔 → 내 애플리케이션 → Web 서비스 URL에\n${host}\n을 추가하세요.`)
+      }, 5000)
       try {
         const center = new window.naver.maps.LatLng(lat, lng)
         const map = new window.naver.maps.Map(containerRef.current, {
@@ -62,27 +69,31 @@ export default function NaverMap({ lat, lng, name }: Props) {
           },
         })
 
+        clearTimeout(tid)
         setReady(true)
       } catch (err) {
+        clearTimeout(tid)
         setError(`지도 생성 오류: ${String(err)}`)
       }
     }
 
     if (window.naver?.maps) {
       initMap()
-      return
+      return () => clearTimeout(tid)
     }
 
     const script = document.createElement('script')
     script.src = `https://oapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${clientId}`
     script.async = true
     script.addEventListener('load', initMap)
-    script.addEventListener('error', () =>
-      setError('네이버 지도 SDK 로드 실패\n네이버 클라우드 플랫폼에서 도메인을 등록했는지 확인하세요.')
-    )
+    script.addEventListener('error', () => {
+      clearTimeout(tid)
+      setError('네이버 지도 SDK 로드 실패\nNCP 콘솔에서 도메인을 등록했는지 확인하세요.')
+    })
     document.head.appendChild(script)
 
     return () => {
+      clearTimeout(tid)
       if (document.head.contains(script)) document.head.removeChild(script)
     }
   }, [lat, lng, name])
