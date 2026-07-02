@@ -4,8 +4,10 @@ import {
   ZONE_LISTS,
   LTV,
   LOAN_PRODUCTS,
+  LOAN_AMOUNT_CAPS,
   ACQUISITION_TAX,
   BROKER_FEE,
+  TOHE_RULES,
 } from './regulations'
 
 // ─── 인지세 ────────────────────────────────────────────────────────────────
@@ -88,6 +90,20 @@ export interface LoanProduct {
   calcLoan: (price: number) => number
 }
 
+// ─── 규제지역 타입 판별 ──────────────────────────────────────────────────
+export type ZoneType = 'tohe' | 'overheat' | 'regulated' | 'none'
+
+export function detectZoneType(sigungu: string | null | undefined): ZoneType {
+  if (!sigungu) return 'none'
+  // 우선순위: tohe > overheat > regulated > none
+  // 서울 25개구 전역: tohe (토허제+투기과열+조정 삼중 규제)
+  if ((ZONE_LISTS.tohe as readonly string[]).some(z => sigungu.includes(z))) return 'tohe'
+  // 경기 12개 지역: overheat (투기과열+조정)
+  if ((ZONE_LISTS.overheat as readonly string[]).some(z => sigungu.includes(z))) return 'overheat'
+  if ((ZONE_LISTS.regulated as readonly string[]).some(z => sigungu.includes(z))) return 'regulated'
+  return 'none'
+}
+
 // ─── DSR 역산 ────────────────────────────────────────────────────────────
 function dsrFactor(annualRatePct: number): number {
   const r = annualRatePct / 100 / 12
@@ -95,14 +111,42 @@ function dsrFactor(annualRatePct: number): number {
   return ((Math.pow(1 + r, n) - 1) / (r * Math.pow(1 + r, n)))
 }
 
-function dsrMaxLoan(income: number, existingPayment: number, annualRate = 3.5): number {
+// 스트레스DSR 3단계(2025.7~) 반영:
+// 수도권·규제지역 +3.0%p, 비규제 +0.75%p 가산 후 DSR 계산 → 실질 한도 감소
+function dsrMaxLoan(income: number, existingPayment: number, annualRate = 3.5, zone: ZoneType = 'none'): number {
+  const stressBufPct = zone !== 'none'
+    ? DSR.stressBuffer.regulated * 100    // 3.0%p
+    : DSR.stressBuffer.nonRegulated * 100 // 0.75%p
+  const effectiveRate = annualRate + stressBufPct
   const monthlyBudget = Math.floor(income * 10000 * DSR.bankRate / 12) - (existingPayment * 10000)
   if (monthlyBudget <= 0) return 0
-  return Math.floor((monthlyBudget * dsrFactor(annualRate)) / 10000)
+  return Math.floor((monthlyBudget * dsrFactor(effectiveRate)) / 10000)
 }
 
-export function calcDsrMaxLoan(income: number, existingPayment: number, annualRate = 3.5): number {
-  return dsrMaxLoan(income, existingPayment, annualRate)
+export function calcDsrMaxLoan(income: number, existingPayment: number, annualRate = 3.5, zone: ZoneType = 'none'): number {
+  return dsrMaxLoan(income, existingPayment, annualRate, zone)
+}
+
+// ─── 절대 대출 한도 (10·15 대책 — 수도권·규제지역) ────────────────────────
+function absoluteLoanCap(price: number, zone: ZoneType): number {
+  if (zone === 'none') return 999999
+  const bracket = LOAN_AMOUNT_CAPS.brackets.find(b => price <= b.maxPrice)
+  return bracket ? bracket.maxLoan : LOAN_AMOUNT_CAPS.brackets[LOAN_AMOUNT_CAPS.brackets.length - 1].maxLoan
+}
+
+// ─── LTV — 일반 주담대 (zone별 차등) ──────────────────────────────────────
+function generalMortgageLtv(zone: ZoneType, price: number, isFirstBuyer: boolean): number {
+  // 서울 전역(tohe) = 투기과열지구 규칙 적용 (삼중 규제이므로 가장 엄격한 기준)
+  if (zone === 'tohe' || zone === 'overheat') {
+    return isFirstBuyer && price <= LTV.overheat.firstBuyerPriceCap
+      ? LTV.overheat.firstBuyer
+      : LTV.overheat.general
+  }
+  if (zone === 'regulated') {
+    if (isFirstBuyer) return LTV.regulated.firstBuyer
+    return price <= LTV.regulated.priceBound ? LTV.regulated.general : LTV.regulated.above9
+  }
+  return isFirstBuyer ? LTV.none.firstBuyer : LTV.none.general
 }
 
 // ─── 구매 가능 금액 계산 ──────────────────────────────────────────────────
@@ -221,30 +265,6 @@ export function calcNoHomeYears(birthYear: number): number {
   return Math.max(0, age - 30)
 }
 
-// ─── 규제지역 타입 판별 ──────────────────────────────────────────────────
-export type ZoneType = 'tohe' | 'overheat' | 'regulated' | 'none'
-
-export function detectZoneType(sigungu: string | null | undefined): ZoneType {
-  if (!sigungu) return 'none'
-  if ((ZONE_LISTS.tohe as readonly string[]).some(z => sigungu.includes(z))) return 'tohe'
-  if ((ZONE_LISTS.overheat as readonly string[]).some(z => sigungu.includes(z))) return 'overheat'
-  if ((ZONE_LISTS.regulated as readonly string[]).some(z => sigungu.includes(z))) return 'regulated'
-  return 'none'
-}
-
-function generalMortgageLtv(zone: ZoneType, price: number, isFirstBuyer: boolean): number {
-  if (zone === 'overheat') {
-    return isFirstBuyer && price <= LTV.overheat.firstBuyerPriceCap
-      ? LTV.overheat.firstBuyer
-      : LTV.overheat.general
-  }
-  if (zone === 'regulated') {
-    if (isFirstBuyer) return LTV.regulated.firstBuyer
-    return price <= LTV.regulated.priceBound ? LTV.regulated.general : LTV.regulated.above9
-  }
-  return isFirstBuyer ? LTV.none.firstBuyer : LTV.none.general
-}
-
 // ─── 대출 상품 목록 ───────────────────────────────────────────────────────
 export function calcLoanProducts(
   price: number,
@@ -253,6 +273,7 @@ export function calcLoanProducts(
 ): LoanProduct[] {
   const zone = detectZoneType(sigungu)
   const netAsset = fin.assets + fin.depositToRecover + fin.giftAmount
+  const absCap = absoluteLoanCap(price, zone)
 
   const d1 = LOAN_PRODUCTS.didimdolSpecial
   const d2 = LOAN_PRODUCTS.didimdolGeneral
@@ -264,15 +285,15 @@ export function calcLoanProducts(
   if (!fin.isNewlywed)   d1Reasons.push('신혼부부 요건 미충족 (혼인 7년 이내)')
   if (!fin.isFirstBuyer) d1Reasons.push('생애최초 요건 미충족')
   if (fin.income > d1.conditions.maxIncome) d1Reasons.push(`소득 초과 (${fin.income.toLocaleString()}만원 > 8,500만원)`)
-  if (price > d1.conditions.maxPrice)       d1Reasons.push(`주택가격 초과 (5억 한도)`)
-  const dsr1 = dsrMaxLoan(fin.income, fin.existingLoanPayment, d1.rates.representative)
+  if (price > d1.conditions.maxPrice)       d1Reasons.push(`주택가격 초과 (6억 한도)`)
+  const dsr1 = dsrMaxLoan(fin.income, fin.existingLoanPayment, d1.rates.representative, zone)
 
   // 디딤돌 (일반·생애최초)
   const d2Reasons: string[] = []
   if (!fin.isFirstBuyer) d2Reasons.push('생애최초 요건 미충족')
   if (fin.income > d2.conditions.maxIncome) d2Reasons.push(`소득 초과 (${fin.income.toLocaleString()}만원 > 6,000만원)`)
   if (price > d2.conditions.maxPrice)       d2Reasons.push(`주택가격 초과 (5억 한도)`)
-  const dsr2 = dsrMaxLoan(fin.income, fin.existingLoanPayment, d2.rates.representative)
+  const dsr2 = dsrMaxLoan(fin.income, fin.existingLoanPayment, d2.rates.representative, zone)
 
   // 신생아 특례
   const ltvNewborn = fin.isFirstBuyer ? nb.conditions.ltvFirstBuyer : nb.conditions.ltvGeneral
@@ -280,7 +301,7 @@ export function calcLoanProducts(
   if (fin.numChildren < 1)   newbornReasons.push('자녀 정보 미입력 (2023.1.1 이후 출생)')
   if (fin.income > nb.conditions.maxIncome) newbornReasons.push(`소득 초과 (${fin.income.toLocaleString()}만원 > 2억)`)
   if (price > nb.conditions.maxPrice)       newbornReasons.push(`주택가격 초과 (9억 한도)`)
-  const dsrN = dsrMaxLoan(fin.income, fin.existingLoanPayment, nb.rates.representative)
+  const dsrN = dsrMaxLoan(fin.income, fin.existingLoanPayment, nb.rates.representative, zone)
 
   // 보금자리론
   const bogumIncomeLimit = fin.isNewlywed ? bg.conditions.maxIncomeNewlywed : bg.conditions.maxIncomeGeneral
@@ -290,13 +311,24 @@ export function calcLoanProducts(
   if (fin.income > bogumIncomeLimit) b1Reasons.push(`소득 초과 (${fin.income.toLocaleString()}만원 > ${bogumIncomeLimit.toLocaleString()}만원)`)
   if (price > bg.conditions.maxPrice) b1Reasons.push(`주택가격 초과 (6억 한도)`)
   if (netAsset > bg.conditions.maxNetAsset) b1Reasons.push(`순자산 초과 (4.69억 한도)`)
-  const dsr3 = dsrMaxLoan(fin.income, fin.existingLoanPayment, bogumRate)
+  const dsr3 = dsrMaxLoan(fin.income, fin.existingLoanPayment, bogumRate, zone)
 
-  // 일반 주담대
+  // 일반 주담대 — zone별 LTV + 절대금액 한도 + 스트레스DSR
   const genLtv = generalMortgageLtv(zone, price, fin.isFirstBuyer)
   const genReasons: string[] = fin.income === 0 ? ['소득 정보 미입력'] : []
-  const dsr5 = dsrMaxLoan(fin.income, fin.existingLoanPayment, 5.0)
-  const zoneLabel = zone === 'overheat' ? '투기과열지구' : zone === 'regulated' ? '조정대상지역' : ''
+  const dsr5 = dsrMaxLoan(fin.income, fin.existingLoanPayment, 5.0, zone)
+
+  const zoneLabel = zone === 'tohe'
+    ? '토허제·투기과열지구 (서울 전역)'
+    : zone === 'overheat'
+      ? '투기과열지구'
+      : zone === 'regulated'
+        ? '조정대상지역'
+        : ''
+
+  const absCapNote = zone !== 'none'
+    ? ` · 한도 ${absCap >= 999999 ? '제한없음' : (absCap / 10000).toFixed(0) + '억'} (10·15 대책)`
+    : ''
 
   return [
     {
@@ -339,11 +371,12 @@ export function calcLoanProducts(
     {
       id: 'general',
       name: '일반 주담대',
-      subName: `시중은행${zoneLabel ? ` · ${zoneLabel} LTV ${Math.round(genLtv * 100)}%` : ''}`,
+      subName: `시중은행${zoneLabel ? ` · ${zoneLabel} LTV ${Math.round(genLtv * 100)}%${absCapNote}` : ''}`,
       repRate: 5.0, rateRange: '연 4~6%',
-      ltvRate: genLtv, maxAmount: 999999,
+      ltvRate: genLtv, maxAmount: absCap,
       eligible: fin.income > 0, blockedReasons: genReasons,
-      calcLoan: (p) => fin.income > 0 ? Math.min(Math.round(p * genLtv), dsr5) : 0,
+      calcLoan: (p) => fin.income > 0
+        ? Math.min(Math.round(p * genLtv), dsr5, absCap) : 0,
     },
   ]
 }
@@ -357,47 +390,40 @@ export interface RegulationZone {
   notes: string[]
 }
 
-import { TOHE_RULES } from './regulations'
-
 export function detectRegulations(sigungu: string | null | undefined): RegulationZone[] {
   if (!sigungu) return []
   const zones: RegulationZone[] = []
 
+  // 토허제 체크 (서울 25개구 전역)
   if ((ZONE_LISTS.tohe as readonly string[]).some(z => sigungu.includes(z))) {
     zones.push({
       type: 'tohe',
       label: TOHE_RULES.label,
-      description: '해당 지역은 토지거래허가구역(토허제)입니다.',
-      ltvCap: null,
-      notes: TOHE_RULES.obligations as unknown as string[],
-    })
-  }
-
-  if ((ZONE_LISTS.overheat as readonly string[]).some(z => sigungu.includes(z))) {
-    zones.push({
-      type: 'overheat',
-      label: '투기과열지구',
-      description: '투기과열지구 규정이 적용됩니다.',
-      ltvCap: LTV.overheat.general,
+      description: `${TOHE_RULES.scope} — 토허제·투기과열지구·조정대상지역 삼중 규제`,
+      ltvCap: LTV.overheat.general,  // 서울 전역 = 투기과열지구 LTV 적용
       notes: [
-        `일반 LTV ${Math.round(LTV.overheat.general * 100)}% (생애최초 9억 이하 ${Math.round(LTV.overheat.firstBuyer * 100)}% 예외)`,
-        '1순위 청약 — 세대주만 가능, 5년 내 당첨자 제한',
-        '재당첨 제한 10년',
-        '정비사업 조합원 지위 양도 제한',
+        ...(TOHE_RULES.obligations as unknown as string[]),
+        `투기과열지구 LTV ${Math.round(LTV.overheat.general * 100)}% (생애최초 9억 이하 ${Math.round(LTV.overheat.firstBuyer * 100)}% 예외)`,
+        '10·15 대책 절대한도: 15억 이하 6억 / 15~25억 4억 / 25억 초과 2억',
+        '스트레스DSR 3단계: 대출금리 +3.0%p 가산 계산',
       ],
     })
   }
 
-  if ((ZONE_LISTS.regulated as readonly string[]).some(z => sigungu.includes(z))) {
+  // 투기과열지구 체크 (서울 제외 경기 12개 — 서울은 tohe에서 이미 처리)
+  const isSeoul = (ZONE_LISTS.tohe as readonly string[]).some(z => sigungu.includes(z))
+  if (!isSeoul && (ZONE_LISTS.overheat as readonly string[]).some(z => sigungu.includes(z))) {
     zones.push({
-      type: 'regulated',
-      label: '조정대상지역',
-      description: '조정대상지역 규정이 적용됩니다.',
-      ltvCap: LTV.regulated.general,
+      type: 'overheat',
+      label: '투기과열지구 · 조정대상지역',
+      description: '경기도 규제 지역 — 투기과열지구 + 조정대상지역 이중 규제 (2025.10.22~)',
+      ltvCap: LTV.overheat.general,
       notes: [
-        `LTV ${Math.round(LTV.regulated.general * 100)}% (9억 초과 ${Math.round(LTV.regulated.above9 * 100)}%), 생애최초 ${Math.round(LTV.regulated.firstBuyer * 100)}% 예외`,
-        '2주택 이상 양도세 중과 (기본세율 + 20%p)',
-        '분양권 전매제한 — 소유권 이전등기 시까지',
+        `LTV ${Math.round(LTV.overheat.general * 100)}% (생애최초 9억 이하 ${Math.round(LTV.overheat.firstBuyer * 100)}% 예외)`,
+        '10·15 대책 절대한도: 15억 이하 6억 / 15~25억 4억 / 25억 초과 2억',
+        '스트레스DSR 3단계: 대출금리 +3.0%p 가산 계산',
+        '1순위 청약 — 세대주만 가능, 5년 내 당첨자 제한',
+        '재당첨 제한 10년',
       ],
     })
   }

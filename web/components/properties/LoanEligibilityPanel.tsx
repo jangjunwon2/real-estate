@@ -46,7 +46,11 @@ export default function LoanEligibilityPanel({ price, finance, sigungu }: Props)
         )}
         {zone !== 'none' && (
           <span className="text-[11px] px-2 py-0.5 rounded-full bg-red-100 text-red-700">
-            {zone === 'overheat' ? '투기과열지구' : zone === 'regulated' ? '조정대상' : '토허제'}
+            {zone === 'tohe'
+              ? '토허제·투기과열·조정 (서울 전역)'
+              : zone === 'overheat'
+                ? '투기과열·조정대상 (경기)'
+                : '조정대상지역'}
           </span>
         )}
       </div>
@@ -112,7 +116,11 @@ export default function LoanEligibilityPanel({ price, finance, sigungu }: Props)
         <p className="text-sm text-gray-500 text-center py-2">현재 조건으로 적격한 정책 대출이 없습니다. 일반 주담대를 검토하세요.</p>
       )}
 
-      <p className="text-[11px] text-gray-400">※ 금리·한도는 기준 금리 변동 및 개인 신용도에 따라 다를 수 있습니다. 은행 심사 후 최종 확정됩니다.</p>
+      <p className="text-[11px] text-gray-400">
+        ※ 2026년 7월 기준 규정 적용 (10·15 부동산 대책, 스트레스DSR 3단계 포함).
+        규제지역 주담대는 실금리 +3.0%p 가산 후 DSR 계산 → 한도 감소 효과 반영.
+        금리·한도는 개인 신용도·심사 결과에 따라 다를 수 있습니다.
+      </p>
     </section>
   )
 }
