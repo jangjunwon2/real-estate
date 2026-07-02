@@ -17,16 +17,18 @@ export const dynamic = 'force-dynamic'
 const TYPE_LABEL: Record<string, string> = { sale: '매매', auction: '경매', subscription: '청약' }
 const PREF_ID = '00000000-0000-0000-0000-000000000001'
 
-// 단지명으로 네이버 부동산 검색 URL 생성 (경매·청약·매매 모두 단지 페이지에서 확인 가능)
-function naverSearchUrl(complexName: string): string {
-  return `https://new.land.naver.com/search?query=${encodeURIComponent(complexName)}`
+// 매물 타입별 네이버 부동산 탭 URL — 단지명 검색으로 직접 이동
+function getNaverUrl(propertyType: string, complexName: string): string {
+  const q = encodeURIComponent(complexName)
+  if (propertyType === 'auction') return `https://new.land.naver.com/auction?query=${q}`
+  if (propertyType === 'subscription') return `https://new.land.naver.com/subscription?query=${q}`
+  return `https://new.land.naver.com/search?query=${q}`
 }
 
-// 매물 타입별 공식 출처 사이트 정보
-const SOURCE_SITES: Record<string, { url: string; label: string }> = {
-  court:     { url: 'https://www.courtauction.go.kr/',                                     label: '법원경매정보' },
-  applyhome: { url: 'https://www.applyhome.co.kr/ai/aia/selectSubscrptHouseList.do',       label: '청약홈 목록' },
-  naver:     { url: 'https://new.land.naver.com/',                                          label: '네이버 부동산' },
+const NAVER_BUTTON_LABEL: Record<string, string> = {
+  auction:      '네이버 경매에서 확인하기',
+  subscription: '네이버 청약에서 확인하기',
+  sale:         '네이버 부동산에서 보기',
 }
 
 async function getProperty(id: string) {
@@ -308,31 +310,17 @@ export default async function PropertyDetailPage({
       {/* 주변 환경 상세 */}
       {loc && <LocationEnvironmentCard loc={loc} />}
 
-      {/* 원문 링크 */}
-      <div className="space-y-2">
-        {/* 메인: 단지명으로 네이버 부동산 검색 — 경매·청약·매매 모두 단지 페이지에서 확인 */}
-        {complex?.name && (
-          <a
-            href={naverSearchUrl(complex.name)}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors"
-          >
-            네이버 부동산에서 '{complex.name}' 검색 →
-          </a>
-        )}
-        {/* 보조: 공식 원본 사이트 (경매·청약은 홈 페이지) */}
-        {SOURCE_SITES[property.source] && (
-          <a
-            href={SOURCE_SITES[property.source].url}
-            target="_blank"
-            rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full py-2 rounded-xl border border-gray-300 text-sm text-gray-600 hover:bg-gray-50 transition-colors"
-          >
-            {SOURCE_SITES[property.source].label} 바로가기 ↗
-          </a>
-        )}
-      </div>
+      {/* 원문 링크 — 매물 타입별 네이버 부동산 탭으로 직접 이동 */}
+      {complex?.name && (
+        <a
+          href={getNaverUrl(property.property_type, complex.name)}
+          target="_blank"
+          rel="noopener noreferrer"
+          className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors"
+        >
+          {NAVER_BUTTON_LABEL[property.property_type] ?? '네이버 부동산에서 보기'} →
+        </a>
+      )}
     </main>
   )
 }
