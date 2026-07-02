@@ -63,7 +63,7 @@ export default function PropertyMap({ lat, lng, name }: Props) {
           // eslint-disable-next-line @next/next/no-img-element
           <img
             key={`${tx}-${ty}`}
-            src={`https://${sub(tx, ty)}.tile.openstreetmap.org/${ZOOM}/${tx}/${ty}.png`}
+            src={`/api/tile/${ZOOM}/${tx}/${ty}`}
             alt=""
             width={TILE}
             height={TILE}
