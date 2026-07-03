@@ -320,7 +320,7 @@ export default async function PropertyDetailPage({
           </a>
           {complex.lat && complex.lng && (
             <a
-              href={`https://map.kakao.com/link/map/${encodeURIComponent(complex.name)},${complex.lat},${complex.lng}`}
+              href={`https://map.kakao.com/link/map/${encodeURIComponent(complex.name)},${Number(complex.lat)},${Number(complex.lng)}`}
               target="_blank"
               rel="noopener noreferrer"
               className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-yellow-400 text-gray-900 font-medium hover:bg-yellow-300 transition-colors"
