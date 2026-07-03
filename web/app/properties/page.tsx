@@ -79,7 +79,7 @@ export default async function PropertiesPage({
           <h1 className="text-xl font-bold">매물 분석</h1>
           {prefs ? (
             <p className="text-sm text-gray-500 mt-0.5">
-              관심 지역: {(prefs.regions as string[]).join(', ')} · 예산: {prefs.budget_min.toLocaleString()}~{prefs.budget_max.toLocaleString()}만원
+              관심 지역: {((prefs.regions as string[]) ?? []).join(', ') || '미설정'} · 예산: {(prefs.budget_min ?? 0).toLocaleString()}~{(prefs.budget_max ?? 0).toLocaleString()}만원
             </p>
           ) : (
             <p className="text-sm text-amber-600 mt-0.5">내 정보를 설정하면 맞춤 추천을 받을 수 있어요</p>
@@ -145,9 +145,9 @@ export default async function PropertiesPage({
                       {article.summary && (
                         <p className="text-xs text-gray-500 mt-1 line-clamp-1">{article.summary}</p>
                       )}
-                      {(article.regions as string[]).length > 0 && (
+                      {((article.regions ?? []) as string[]).length > 0 && (
                         <div className="flex gap-1 mt-1.5">
-                          {(article.regions as string[]).slice(0, 3).map((r: string) => (
+                          {((article.regions ?? []) as string[]).slice(0, 3).map((r: string) => (
                             <span key={r} className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600">{r}</span>
                           ))}
                         </div>

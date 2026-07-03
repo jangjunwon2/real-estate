@@ -11,6 +11,7 @@ export default function QuickPrefsPanel() {
   const [isNewlywed, setIsNewlywed] = useState(false)
   const [isFirstBuyer, setIsFirstBuyer] = useState(false)
   const [saving, setSaving] = useState(false)
+  const [saveError, setSaveError] = useState(false)
 
   const toggleRegion = (r: string) =>
     setRegions(prev =>
@@ -18,25 +19,31 @@ export default function QuickPrefsPanel() {
     )
 
   const save = async () => {
-    setSaving(true)
-    await fetch('/api/preferences', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        regions,
-        budget_min: 0,
-        budget_max: budgetMax,
-        property_types: ['sale', 'subscription', 'auction'],
-        monthly_income: 0,
-        assets: 0,
-        is_newlywed: isNewlywed,
-        is_first_buyer: isFirstBuyer,
-        no_home_years: 0,
-        num_children: 0,
-      }),
-    })
-    setSaving(false)
-    router.refresh()
+    setSaving(true); setSaveError(false)
+    try {
+      const r = await fetch('/api/preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          regions,
+          budget_min: 0,
+          budget_max: budgetMax,
+          property_types: ['sale', 'subscription', 'auction'],
+          monthly_income: 0,
+          assets: 0,
+          is_newlywed: isNewlywed,
+          is_first_buyer: isFirstBuyer,
+          no_home_years: 0,
+          num_children: 0,
+        }),
+      })
+      if (!r.ok) throw new Error()
+      router.refresh()
+    } catch {
+      setSaveError(true)
+    } finally {
+      setSaving(false)
+    }
   }
 
   return (
@@ -116,6 +123,9 @@ export default function QuickPrefsPanel() {
       >
         {saving ? '저장 중...' : '맞춤 추천 받기'}
       </button>
+      {saveError && (
+        <p className="text-xs text-red-500 text-center">저장에 실패했습니다. 다시 시도해주세요.</p>
+      )}
     </div>
   )
 }

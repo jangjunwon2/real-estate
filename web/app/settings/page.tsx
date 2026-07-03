@@ -103,13 +103,15 @@ export default function SettingsPage() {
   const [regionInput, setRegionInput] = useState('')
   const [saving, setSaving] = useState(false)
   const [saved, setSaved] = useState(false)
+  const [saveError, setSaveError] = useState(false)
   const [loading, setLoading] = useState(true)
+  const [loadError, setLoadError] = useState(false)
 
   useEffect(() => {
     fetch('/api/preferences')
-      .then(r => r.json())
+      .then(r => { if (!r.ok) throw new Error(); return r.json() })
       .then(data => { setPrefs({ ...DEFAULT_PREFS, ...data }); setLoading(false) })
-      .catch(() => setLoading(false))
+      .catch(() => { setLoadError(true); setLoading(false) })
   }, [])
 
   const set = <K extends keyof Prefs>(k: K) => (v: Prefs[K]) =>
@@ -150,24 +152,41 @@ export default function SettingsPage() {
 
   const affordableScenarios = useMemo<AffordableScenario[]>(() => {
     if (selfFunds === 0 && prefs.monthly_income === 0) return []
+    if (selfFunds === 0) return []   // 자기자본 없으면 LTV 계산 불가
     return calcAffordableScenarios(selfFunds, finance)
-  }, [selfFunds, finance])
+  }, [selfFunds, finance, prefs.monthly_income])
 
   const bestEligible = affordableScenarios.find(s => s.eligible && s.maxPrice > 0)
 
   const save = async () => {
-    setSaving(true)
-    await fetch('/api/preferences', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify(prefs),
-    })
-    setSaving(false); setSaved(true)
-    setTimeout(() => setSaved(false), 3000)
+    setSaving(true); setSaveError(false)
+    try {
+      const r = await fetch('/api/preferences', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(prefs),
+      })
+      if (!r.ok) throw new Error()
+      setSaved(true)
+      setTimeout(() => setSaved(false), 3000)
+    } catch {
+      setSaveError(true)
+    } finally {
+      setSaving(false)
+    }
   }
 
   if (loading) {
     return <main className="max-w-xl mx-auto px-4 py-12 text-gray-400 text-sm">불러오는 중...</main>
+  }
+  if (loadError) {
+    return (
+      <main className="max-w-xl mx-auto px-4 py-12 text-center space-y-3">
+        <p className="text-gray-600 font-medium">설정을 불러오지 못했습니다</p>
+        <p className="text-sm text-gray-400">네트워크 오류가 발생했습니다. 새로고침 후 다시 시도해주세요.</p>
+        <button onClick={() => location.reload()} className="px-4 py-2 rounded-lg bg-gray-900 text-white text-sm">새로고침</button>
+      </main>
+    )
   }
 
   return (
@@ -344,6 +363,11 @@ export default function SettingsPage() {
       </section>
 
       {/* ══ 3. 구매 가능 금액 (자동 계산) ══════════════════════════════ */}
+      {prefs.monthly_income > 0 && selfFunds === 0 && (
+        <div className="rounded-xl border border-amber-200 bg-amber-50 px-4 py-3 text-sm text-amber-800">
+          소득 정보가 입력되었습니다. 현금·저축, 전세보증금 등 자기자본을 입력하면 구매 가능 금액을 계산합니다.
+        </div>
+      )}
       {affordableScenarios.length > 0 && (
         <section className="space-y-3">
           <div>
@@ -495,6 +519,7 @@ export default function SettingsPage() {
           {saving ? '저장 중...' : '저장'}
         </button>
         {saved && <span className="text-sm text-green-600 font-medium">✓ 저장되었습니다</span>}
+        {saveError && <span className="text-sm text-red-500 font-medium">저장에 실패했습니다. 다시 시도해주세요.</span>}
       </div>
     </main>
   )

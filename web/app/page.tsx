@@ -76,7 +76,7 @@ export default async function HomePage() {
           <p className="text-sm text-gray-600">
             {(prefs as any).is_newlywed && <span className="mr-1">💍신혼</span>}
             {(prefs as any).is_first_buyer && <span className="mr-1">🏠생애최초</span>}
-            관심 지역: {((prefs as any).regions as string[]).join(', ')} · 예산 {((prefs as any).budget_max as number).toLocaleString()}만원 이하
+            관심 지역: {(((prefs as any).regions as string[]) ?? []).join(', ') || '미설정'} · 예산 {((prefs as any).budget_max ?? 0).toLocaleString()}만원 이하
           </p>
           <Link href="/settings" className="text-xs text-indigo-600 hover:underline shrink-0">수정</Link>
         </div>
@@ -90,12 +90,17 @@ export default async function HomePage() {
           </div>
         )}
 
-      {properties.length > 0 && (
-        <section>
-          <h2 className="text-lg font-semibold mb-4">오늘의 추천 매물</h2>
-          <PropertyGrid properties={properties as any} />
-        </section>
-      )}
+      <section>
+        <h2 className="text-lg font-semibold mb-4">오늘의 추천 매물</h2>
+        {properties.length > 0
+          ? <PropertyGrid properties={properties as any} />
+          : (
+            <div className="rounded-xl border border-dashed border-gray-200 p-6 text-center space-y-1">
+              <p className="text-sm text-gray-500">오늘 등록된 추천 매물이 없습니다.</p>
+              <p className="text-xs text-gray-400">매물 목록에서 전체 매물을 확인해보세요.</p>
+            </div>
+          )}
+      </section>
 
       <section>
         <h2 className="text-lg font-semibold mb-4">최신 뉴스</h2>
