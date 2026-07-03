@@ -18,8 +18,8 @@ export default function PropertyMap({ lat, lng, name }: Props) {
   const delta = 0.005
   const bbox = `${lng - delta},${lat - delta},${lng + delta},${lat + delta}`
   const src = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat},${lng}`
-  // 구형 Naver Maps URL — v5로 리다이렉트되며 lat/lng 좌표로 정확한 위치 표시
-  const naverUrl = `https://map.naver.com/?lat=${lat}&lng=${lng}&level=11&title=${encodeURIComponent(name)}&pinType=place`
+  // Kakao Maps 공식 딥링크: 좌표 핀 + 단지명 — 항상 정확한 위치 표시
+  const kakaoUrl = `https://map.kakao.com/link/map/${encodeURIComponent(name)},${lat},${lng}`
 
   return (
     <div className="space-y-2">
@@ -34,12 +34,12 @@ export default function PropertyMap({ lat, lng, name }: Props) {
         />
       </div>
       <a
-        href={naverUrl}
+        href={kakaoUrl}
         target="_blank"
         rel="noopener noreferrer"
-        className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-green-600 transition-colors"
+        className="inline-flex items-center gap-1 text-xs text-gray-400 hover:text-yellow-500 transition-colors"
       >
-        네이버 지도에서 보기 ↗
+        카카오맵에서 보기 ↗
       </a>
     </div>
   )
