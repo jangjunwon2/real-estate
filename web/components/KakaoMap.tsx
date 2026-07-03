@@ -1,4 +1,9 @@
 'use client'
+import { useEffect, useRef } from 'react'
+
+declare global {
+  interface Window { naver: any }
+}
 
 interface Props {
   lat: number
@@ -14,22 +19,45 @@ interface Props {
   } | null
 }
 
-export default function PropertyMap({ lat, lng, name }: Props) {
-  const delta = 0.005
-  const bbox = `${lng - delta},${lat - delta},${lng + delta},${lat + delta}`
-  const src = `https://www.openstreetmap.org/export/embed.html?bbox=${bbox}&layer=mapnik&marker=${lat},${lng}`
+export default function NaverMapEmbed({ lat, lng, name }: Props) {
+  const containerRef = useRef<HTMLDivElement>(null)
+
+  useEffect(() => {
+    const container = containerRef.current
+    if (!container) return
+
+    const clientId = process.env.NEXT_PUBLIC_NAVER_MAP_CLIENT_ID
+
+    function initMap() {
+      if (!container || !window.naver?.maps) return
+      const center = new window.naver.maps.LatLng(lat, lng)
+      const map = new window.naver.maps.Map(container, { center, zoom: 16 })
+      new window.naver.maps.Marker({ position: center, map, title: name })
+    }
+
+    if (window.naver?.maps) {
+      initMap()
+      return
+    }
+
+    const existing = document.getElementById('naver-maps-sdk')
+    if (existing) {
+      existing.addEventListener('load', initMap)
+      return () => existing.removeEventListener('load', initMap)
+    }
+
+    const script = document.createElement('script')
+    script.id = 'naver-maps-sdk'
+    script.src = `https://openapi.map.naver.com/openapi/v3/maps.js?ncpClientId=${clientId}`
+    script.async = true
+    script.onload = initMap
+    document.head.appendChild(script)
+  }, [lat, lng, name])
+
   return (
-    <div>
-      <div style={{ borderRadius: 12, overflow: 'hidden', height: 320, border: '1px solid #e5e7eb' }}>
-        <iframe
-          src={src}
-          width="100%"
-          height="320"
-          style={{ border: 0, display: 'block' }}
-          title={`${name} 위치 지도`}
-          loading="lazy"
-        />
-      </div>
-    </div>
+    <div
+      ref={containerRef}
+      style={{ width: '100%', height: 320, borderRadius: 12, border: '1px solid #e5e7eb' }}
+    />
   )
 }
