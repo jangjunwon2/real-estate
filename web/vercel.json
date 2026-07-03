@@ -1,0 +1,9 @@
+{
+  "framework": "nextjs",
+  "crons": [
+    {
+      "path": "/api/cron/pipeline",
+      "schedule": "0 7 * * *"
+    }
+  ]
+}

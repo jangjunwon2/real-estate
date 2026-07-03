@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
-
-const PREF_ID = '00000000-0000-0000-0000-000000000001'
+import { createSupabaseServerClient } from '@/lib/supabase-server'
+import { logError } from '@/lib/logger'
 
 export const dynamic = 'force-dynamic'
 
@@ -24,17 +24,37 @@ const DEFAULT_PREFS = {
   birth_year: null as number | null,
 }
 
+async function getUser() {
+  const supabase = await createSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  return user
+}
+
 export async function GET() {
+  const user = await getUser()
+  if (!user) return Response.json({ error: 'unauthorized' }, { status: 401 })
+
   const db = createServerClient()
-  const { data } = await db.from('user_preferences').select('*').eq('id', PREF_ID).single()
+  const { data, error } = await db.from('user_preferences')
+    .select('*')
+    .eq('user_id', user.id)
+    .maybeSingle()
+
+  if (error) {
+    logError('preferences/GET', error)
+    return Response.json({ error: error.message }, { status: 500 })
+  }
   return Response.json(data ?? DEFAULT_PREFS)
 }
 
 export async function POST(req: NextRequest) {
+  const user = await getUser()
+  if (!user) return Response.json({ error: 'unauthorized' }, { status: 401 })
+
   const body = await req.json()
   const db = createServerClient()
   const { error } = await db.from('user_preferences').upsert({
-    id: PREF_ID,
+    user_id: user.id,
     regions: body.regions ?? ['서울'],
     budget_min: Number(body.budget_min) || 30000,
     budget_max: Number(body.budget_max) || 60000,
@@ -52,7 +72,11 @@ export async function POST(req: NextRequest) {
     credit_score_range: body.credit_score_range ?? '800-900',
     birth_year: body.birth_year ? Number(body.birth_year) : null,
     updated_at: new Date().toISOString(),
-  })
-  if (error) return Response.json({ error: error.message }, { status: 500 })
+  }, { onConflict: 'user_id' })
+
+  if (error) {
+    logError('preferences/POST', error)
+    return Response.json({ error: error.message }, { status: 500 })
+  }
   return Response.json({ ok: true })
 }

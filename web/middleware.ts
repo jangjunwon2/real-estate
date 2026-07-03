@@ -9,7 +9,7 @@ const counts = new Map<string, { count: number; reset: number }>()
 // 로그인 없이 접근 가능한 경로
 const PUBLIC_PATHS = ['/login', '/signup', '/forgot-password', '/reset-password', '/auth/callback', '/api/auth']
 // 자체 API 키 인증을 사용하는 경로 (Supabase 세션 체크 제외)
-const KEY_AUTH_PATHS = ['/api/admin', '/api/pipeline', '/api/briefings']
+const KEY_AUTH_PATHS = ['/api/admin', '/api/pipeline', '/api/briefings', '/api/cron']
 
 export async function middleware(req: NextRequest) {
   const { pathname } = req.nextUrl

@@ -28,4 +28,5 @@ export const ArticleQuerySchema = z.object({
   category: z.string().optional(),
   date: z.string().optional(),
   urgent: z.coerce.boolean().optional(),
+  keyword: z.string().max(100).optional(),
 })
