@@ -17,9 +17,22 @@ export const dynamic = 'force-dynamic'
 const TYPE_LABEL: Record<string, string> = { sale: '매매', auction: '경매', subscription: '청약' }
 const PREF_ID = '00000000-0000-0000-0000-000000000001'
 
-// 네이버 일반 검색 — 단지명 카드(위치·세대수 등) 바로 표시
-function getNaverSearchUrl(complexName: string): string {
-  return `https://search.naver.com/search.naver?query=${encodeURIComponent(complexName)}`
+function getExternalLink(propertyType: string, complexName: string): { url: string; label: string; className: string } {
+  if (propertyType === 'auction') return {
+    url: 'https://www.courtauction.go.kr',
+    label: '법원 경매 정보 사이트에서 확인 →',
+    className: 'bg-orange-500 hover:bg-orange-600 text-white',
+  }
+  if (propertyType === 'subscription') return {
+    url: 'https://www.applyhome.co.kr',
+    label: '청약홈에서 공고 확인 →',
+    className: 'bg-blue-600 hover:bg-blue-700 text-white',
+  }
+  return {
+    url: `https://search.naver.com/search.naver?query=${encodeURIComponent(complexName)}`,
+    label: '네이버에서 단지 정보 검색 →',
+    className: 'bg-green-600 hover:bg-green-700 text-white',
+  }
 }
 
 async function getProperty(id: string) {
@@ -302,15 +315,17 @@ export default async function PropertyDetailPage({
       {loc && <LocationEnvironmentCard loc={loc} />}
 
       {/* 외부 링크 버튼 */}
-      {complex?.name && (
+      {complex?.name && (() => {
+        const ext = getExternalLink(property.property_type, complex.name)
+        return (
         <div className="flex flex-col gap-2">
           <a
-            href={getNaverSearchUrl(complex.name)}
+            href={ext.url}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-green-600 text-white font-medium hover:bg-green-700 transition-colors"
+            className={`flex items-center justify-center gap-2 w-full py-3 rounded-xl font-medium transition-colors ${ext.className}`}
           >
-            네이버에서 단지 정보 검색 →
+            {ext.label}
           </a>
           {complex.lat && complex.lng && (
             <a
@@ -323,7 +338,8 @@ export default async function PropertyDetailPage({
             </a>
           )}
         </div>
-      )}
+        )
+      })()}
     </main>
   )
 }
