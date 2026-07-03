@@ -4,10 +4,15 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { createSupabaseBrowserClient } from '@/lib/supabase-browser'
 import Link from 'next/link'
 
+const URL_ERRORS: Record<string, string> = {
+  link_expired: '인증 링크가 만료되었거나 이미 사용되었습니다. 다시 시도해주세요.',
+}
+
 function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const redirectTo = searchParams.get('redirect') ?? '/'
+  const urlError = searchParams.get('error')
 
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
@@ -31,11 +36,13 @@ function LoginForm() {
     }
   }
 
+  const displayError = error || (urlError ? (URL_ERRORS[urlError] ?? '오류가 발생했습니다. 다시 시도해주세요.') : '')
+
   return (
     <form onSubmit={login} className="bg-white rounded-2xl border border-gray-200 p-7 space-y-4 shadow-sm">
-      {error && (
+      {displayError && (
         <div className="rounded-lg bg-red-50 border border-red-200 px-3 py-2.5 text-sm text-red-700">
-          {error}
+          {displayError}
         </div>
       )}
 
@@ -54,7 +61,12 @@ function LoginForm() {
       </div>
 
       <div className="space-y-1.5">
-        <label className="text-xs font-medium text-gray-700">비밀번호</label>
+        <div className="flex items-center justify-between">
+          <label className="text-xs font-medium text-gray-700">비밀번호</label>
+          <Link href="/forgot-password" className="text-xs text-indigo-500 hover:underline">
+            비밀번호를 잊으셨나요?
+          </Link>
+        </div>
         <input
           type="password"
           value={password}
@@ -86,7 +98,7 @@ export default function LoginPage() {
           <p className="text-sm text-gray-500">부동산AI 어드바이저에 오신 것을 환영합니다</p>
         </div>
 
-        <Suspense fallback={<div className="h-48 animate-pulse bg-white rounded-2xl border" />}>
+        <Suspense fallback={<div className="h-56 animate-pulse bg-white rounded-2xl border" />}>
           <LoginForm />
         </Suspense>
 
