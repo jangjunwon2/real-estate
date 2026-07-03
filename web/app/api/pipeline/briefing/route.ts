@@ -4,9 +4,14 @@ import { validatePipelineKey, unauthorized } from '@/lib/auth'
 import { revalidatePath } from 'next/cache'
 export const dynamic = 'force-dynamic'
 
+const VALID_SIGNALS = ['buy', 'wait', 'avoid'] as const
+
 export async function POST(req: NextRequest) {
   if (!validatePipelineKey(req)) return unauthorized()
   const { run_id, content, signal, signal_reason, articles_count, urgent_count } = await req.json()
+  if (signal && !(VALID_SIGNALS as readonly string[]).includes(signal)) {
+    return Response.json({ error: `signal must be one of: ${VALID_SIGNALS.join(', ')}` }, { status: 400 })
+  }
   const db = createServerClient()
   const { data, error } = await db.from('briefings')
     .insert({ pipeline_run_id: run_id, content, signal, signal_reason, articles_count, urgent_count })

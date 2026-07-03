@@ -4,6 +4,7 @@ interface Props {
 
 export default function SubscriptionCountdown({ endDate }: Props) {
   const end = new Date(endDate)
+  if (isNaN(end.getTime())) return null
   const now = new Date()
   const days = Math.ceil((end.getTime() - now.getTime()) / (1000 * 60 * 60 * 24))
 

@@ -4,7 +4,10 @@ import { createServerClient } from '@/lib/supabase'
 import { validateAdminKey, unauthorized } from '@/lib/auth'
 export const dynamic = 'force-dynamic'
 
-const anthropic = new Anthropic()
+function parseAIJson(text: string): unknown {
+  const cleaned = text.replace(/^```(?:json)?\s*/m, '').replace(/\s*```\s*$/m, '').trim()
+  return JSON.parse(cleaned)
+}
 
 export async function POST(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
   if (!validateAdminKey(req)) return unauthorized()
@@ -16,6 +19,7 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
     .single()
   if (!article) return Response.json({ error: 'not found' }, { status: 404 })
 
+  const anthropic = new Anthropic()
   const msg = await anthropic.messages.create({
     model: 'claude-haiku-4-5',
     max_tokens: 256,
@@ -24,9 +28,16 @@ export async function POST(req: NextRequest, { params }: { params: Promise<{ id:
       content: `부동산 뉴스를 분류하고 JSON으로만 응답. 카테고리: 정책/금리/시세/청약/세금/경매/재개발/기타\n제목: ${article.title}\n내용: ${article.summary ?? ''}\n{"category":"...","importance":1-10,"urgent":true/false,"summary":"한 줄 요약","regions":["서울"]}`,
     }],
   })
-  const result = JSON.parse((msg.content[0] as Anthropic.TextBlock).text)
+
+  let result: unknown
+  try {
+    result = parseAIJson((msg.content[0] as Anthropic.TextBlock).text)
+  } catch {
+    return Response.json({ error: 'AI 응답 파싱 실패' }, { status: 502 })
+  }
+
   const { data, error } = await db.from('articles')
-    .update({ ...result, updated_at: new Date().toISOString() })
+    .update({ ...(result as object), updated_at: new Date().toISOString() })
     .eq('id', id)
     .select()
     .single()

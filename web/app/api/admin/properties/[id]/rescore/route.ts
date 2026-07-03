@@ -4,7 +4,10 @@ import { createServerClient } from '@/lib/supabase'
 import { validateAdminKey, unauthorized } from '@/lib/auth'
 export const dynamic = 'force-dynamic'
 
-const anthropic = new Anthropic()
+function parseAIJson(text: string): unknown {
+  const cleaned = text.replace(/^```(?:json)?\s*/m, '').replace(/\s*```\s*$/m, '').trim()
+  return JSON.parse(cleaned)
+}
 
 export async function POST(
   req: NextRequest,
@@ -21,6 +24,7 @@ export async function POST(
 
   if (!property) return Response.json({ error: 'not found' }, { status: 404 })
 
+  const anthropic = new Anthropic()
   const msg = await anthropic.messages.create({
     model: 'claude-haiku-4-5-20251001',
     max_tokens: 512,
@@ -30,16 +34,22 @@ export async function POST(
     }],
   })
 
-  const result = JSON.parse((msg.content[0] as any).text)
+  let result: unknown
+  try {
+    result = parseAIJson((msg.content[0] as Anthropic.TextBlock).text)
+  } catch {
+    return Response.json({ error: 'AI 응답 파싱 실패' }, { status: 502 })
+  }
+  const r = result as Record<string, unknown>
   const total =
-    (result.price_score ?? 0) +
-    (result.location_score ?? 0) +
-    (result.complex_score ?? 0) +
-    (result.demand_score ?? 0) +
-    (result.regulatory_score ?? 0)
+    (Number(r.price_score) || 0) +
+    (Number(r.location_score) || 0) +
+    (Number(r.complex_score) || 0) +
+    (Number(r.demand_score) || 0) +
+    (Number(r.regulatory_score) || 0)
 
   const { data, error } = await db.from('property_scores')
-    .upsert({ property_id: id, ...result, total_score: total, scored_at: new Date().toISOString() })
+    .upsert({ property_id: id, ...r, total_score: total, scored_at: new Date().toISOString() })
     .select().single()
 
   if (error) return Response.json({ error: error.message }, { status: 500 })

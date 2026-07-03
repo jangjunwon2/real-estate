@@ -11,6 +11,11 @@ export async function POST(req: NextRequest) {
   if (!expectedAmount || Number(amount) !== expectedAmount) {
     return Response.json({ error: 'invalid amount or tier' }, { status: 400 })
   }
+  // userId UUID 형식 검증
+  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
+  if (!userId || !UUID_RE.test(String(userId))) {
+    return Response.json({ error: 'invalid userId' }, { status: 400 })
+  }
 
   const tossSecretKey = process.env.TOSS_SECRET_KEY!
   const encoded = Buffer.from(`${tossSecretKey}:`).toString('base64')

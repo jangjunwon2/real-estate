@@ -17,7 +17,7 @@ export async function GET(req: Request) {
   return Response.json({ properties: data, total: count, limit, offset })
 }
 
-const ALLOWED_STATUS = ['active', 'hidden', 'pending', 'sold'] as const
+const ALLOWED_STATUS = ['active', 'sold', 'cancelled'] as const
 
 export async function PATCH(req: Request) {
   if (!validateAdminKey(req)) return unauthorized()
