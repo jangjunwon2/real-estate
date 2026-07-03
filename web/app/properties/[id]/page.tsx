@@ -17,16 +17,9 @@ export const dynamic = 'force-dynamic'
 const TYPE_LABEL: Record<string, string> = { sale: '매매', auction: '경매', subscription: '청약' }
 const PREF_ID = '00000000-0000-0000-0000-000000000001'
 
-// 도로명 주소로 검색 — 단지명보다 Naver Real Estate가 정확히 위치를 인식
-function getNaverUrl(roadAddress: string, complexName: string): string {
-  const q = roadAddress || complexName
-  return `https://new.land.naver.com/search?query=${encodeURIComponent(q)}`
-}
-
-const NAVER_BUTTON_LABEL: Record<string, string> = {
-  auction:      '네이버 부동산에서 단지 검색 (경매 탭 확인)',
-  subscription: '네이버 부동산에서 단지 검색 (분양 탭 확인)',
-  sale:         '네이버 부동산에서 단지 검색',
+// 네이버 일반 검색 — 단지명 카드(위치·세대수 등) 바로 표시
+function getNaverSearchUrl(complexName: string): string {
+  return `https://search.naver.com/search.naver?query=${encodeURIComponent(complexName)}`
 }
 
 async function getProperty(id: string) {
@@ -312,12 +305,12 @@ export default async function PropertyDetailPage({
       {complex?.name && (
         <div className="flex flex-col gap-2">
           <a
-            href={getNaverUrl(complex.road_address, complex.name)}
+            href={getNaverSearchUrl(complex.name)}
             target="_blank"
             rel="noopener noreferrer"
-            className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors"
+            className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-green-600 text-white font-medium hover:bg-green-700 transition-colors"
           >
-            {NAVER_BUTTON_LABEL[property.property_type] ?? '네이버 부동산에서 보기'} →
+            네이버에서 단지 정보 검색 →
           </a>
           {complex.lat && complex.lng && (
             <a
