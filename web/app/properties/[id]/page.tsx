@@ -307,16 +307,28 @@ export default async function PropertyDetailPage({
       {/* 주변 환경 상세 */}
       {loc && <LocationEnvironmentCard loc={loc} />}
 
-      {/* 원문 링크 — 매물 타입별 네이버 부동산 탭으로 직접 이동 */}
+      {/* 외부 링크 버튼 */}
       {complex?.name && (
-        <a
-          href={getNaverUrl(complex.name)}
-          target="_blank"
-          rel="noopener noreferrer"
-          className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors"
-        >
-          {NAVER_BUTTON_LABEL[property.property_type] ?? '네이버 부동산에서 보기'} →
-        </a>
+        <div className="flex flex-col gap-2">
+          <a
+            href={getNaverUrl(complex.name)}
+            target="_blank"
+            rel="noopener noreferrer"
+            className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors"
+          >
+            {NAVER_BUTTON_LABEL[property.property_type] ?? '네이버 부동산에서 보기'} →
+          </a>
+          {complex.lat && complex.lng && (
+            <a
+              href={`https://map.kakao.com/link/map/${encodeURIComponent(complex.name)},${complex.lat},${complex.lng}`}
+              target="_blank"
+              rel="noopener noreferrer"
+              className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-yellow-400 text-gray-900 font-medium hover:bg-yellow-300 transition-colors"
+            >
+              카카오맵에서 위치 보기 →
+            </a>
+          )}
+        </div>
       )}
     </main>
   )
