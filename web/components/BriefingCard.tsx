@@ -8,9 +8,10 @@ const SIGNAL_CONFIG: Record<BuyingSignal, { emoji: string; label: string; color:
 
 export default function BriefingCard({ briefing }: { briefing: Briefing }) {
   const signal = briefing.signal ? SIGNAL_CONFIG[briefing.signal] : null
-  const date = new Date(briefing.generated_at).toLocaleDateString('ko-KR', {
-    year: 'numeric', month: 'long', day: 'numeric',
-  })
+  const rawDate = briefing.generated_at ? new Date(briefing.generated_at) : null
+  const date = rawDate && !isNaN(rawDate.getTime())
+    ? rawDate.toLocaleDateString('ko-KR', { year: 'numeric', month: 'long', day: 'numeric' })
+    : '날짜 미상'
 
   return (
     <article className="rounded-xl border border-gray-200 p-6 space-y-4">

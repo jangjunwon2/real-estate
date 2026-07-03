@@ -96,8 +96,8 @@ export default function LoanEligibilityPanel({ price, finance, sigungu }: Props)
                     {isBest && <span className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-600 text-white">추천</span>}
                   </div>
                   <p className="text-xs text-gray-400 mt-0.5">금리 {p.rateRange} · LTV {Math.round(p.ltvRate * 100)}% · 한도 {p.maxAmount >= 999999 ? '제한없음' : formatPrice(p.maxAmount)}</p>
-                  {!p.eligible && p.blockedReasons.map((r, i) => (
-                    <p key={i} className="text-xs text-red-500 mt-0.5">· {r}</p>
+                  {!p.eligible && p.blockedReasons.map((r) => (
+                    <p key={r} className="text-xs text-red-500 mt-0.5">· {r}</p>
                   ))}
                 </div>
                 {p.eligible && loan > 0 && (

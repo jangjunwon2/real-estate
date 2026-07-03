@@ -2,6 +2,8 @@ import { NextRequest, NextResponse } from 'next/server'
 
 const WINDOW_MS = 60_000
 const MAX_REQUESTS = 60
+// 참고: Vercel 서버리스 환경에서는 인스턴스별로 동작 (인스턴스 간 공유 안 됨)
+// 단일 사용자 MVP에서는 best-effort 제한으로 충분함
 const counts = new Map<string, { count: number; reset: number }>()
 
 export function middleware(req: NextRequest) {
@@ -14,6 +16,12 @@ export function middleware(req: NextRequest) {
 
   const ip = req.headers.get('x-forwarded-for')?.split(',')[0] ?? 'unknown'
   const now = Date.now()
+
+  // 만료된 항목 정리 (메모리 누수 방지)
+  for (const [key, val] of counts) {
+    if (now > val.reset) counts.delete(key)
+  }
+
   const entry = counts.get(ip)
 
   if (!entry || now > entry.reset) {

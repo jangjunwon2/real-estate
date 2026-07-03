@@ -60,6 +60,7 @@ export function calcMonthlyPayment(principal: number, annualRatePct: number, yea
   if (principal <= 0) return 0
   const r = annualRatePct / 100 / 12
   const n = years * 12
+  if (r === 0) return Math.round(principal / n)
   const factor = (r * Math.pow(1 + r, n)) / (Math.pow(1 + r, n) - 1)
   return Math.round(principal * factor)
 }
@@ -108,6 +109,7 @@ export function detectZoneType(sigungu: string | null | undefined): ZoneType {
 function dsrFactor(annualRatePct: number): number {
   const r = annualRatePct / 100 / 12
   const n = 360
+  if (r === 0) return n
   return ((Math.pow(1 + r, n) - 1) / (r * Math.pow(1 + r, n)))
 }
 
@@ -159,7 +161,7 @@ export function calcMaxAffordablePrice(
 ): number {
   const maxLoan = Math.min(loanCap, dsrMax)
   let price = selfFunds + maxLoan
-  if (price * ltvRate < maxLoan) {
+  if (ltvRate < 1 && price * ltvRate < maxLoan) {
     price = Math.round(selfFunds / (1 - ltvRate))
   }
   if (priceCap && price > priceCap) price = priceCap
