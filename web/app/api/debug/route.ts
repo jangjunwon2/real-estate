@@ -1,11 +1,11 @@
 import { createServerClient } from '@/lib/supabase'
-import { validateAdminKey, unauthorized } from '@/lib/auth'
+import { validateAdminRequest, unauthorized } from '@/lib/auth'
 import type { NextRequest } from 'next/server'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
-  if (!validateAdminKey(req)) return unauthorized()
+  if (!await validateAdminRequest(req)) return unauthorized()
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL
   const hasServiceKey = !!process.env.SUPABASE_SERVICE_ROLE_KEY
   const hasPipelineKey = !!process.env.PIPELINE_API_KEY

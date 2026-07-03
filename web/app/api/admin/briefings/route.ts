@@ -1,10 +1,10 @@
 import { createServerClient } from '@/lib/supabase'
-import { validateAdminKey, unauthorized } from '@/lib/auth'
+import { validateAdminRequest, unauthorized } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: Request) {
-  if (!validateAdminKey(req)) return unauthorized()
+  if (!await validateAdminRequest(req)) return unauthorized()
   const url = new URL((req as Request).url)
   const limit = Math.min(Number(url.searchParams.get('limit') ?? 10), 30)
   const db = createServerClient()

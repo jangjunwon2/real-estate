@@ -1,10 +1,10 @@
 import { createServerClient } from '@/lib/supabase'
-import { validateAdminKey, unauthorized } from '@/lib/auth'
+import { validateAdminRequest, unauthorized } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
 export async function GET(req: Request) {
-  if (!validateAdminKey(req)) return unauthorized()
+  if (!await validateAdminRequest(req)) return unauthorized()
   const db = createServerClient()
   const today = new Date().toISOString().slice(0, 10)
 

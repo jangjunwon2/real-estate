@@ -1,9 +1,9 @@
 import { NextRequest } from 'next/server'
-import { validateAdminKey, unauthorized } from '@/lib/auth'
+import { validateAdminRequest, unauthorized } from '@/lib/auth'
 export const dynamic = 'force-dynamic'
 
 export async function POST(req: NextRequest) {
-  if (!validateAdminKey(req)) return unauthorized()
+  if (!await validateAdminRequest(req)) return unauthorized()
   const githubToken = process.env.GITHUB_TOKEN
   const repo = process.env.GITHUB_REPO
   if (!githubToken || !repo)

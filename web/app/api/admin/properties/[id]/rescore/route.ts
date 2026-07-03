@@ -1,7 +1,7 @@
 import { NextRequest } from 'next/server'
 import Anthropic from '@anthropic-ai/sdk'
 import { createServerClient } from '@/lib/supabase'
-import { validateAdminKey, unauthorized } from '@/lib/auth'
+import { validateAdminRequest, unauthorized } from '@/lib/auth'
 export const dynamic = 'force-dynamic'
 
 function parseAIJson(text: string): unknown {
@@ -13,7 +13,7 @@ export async function POST(
   req: NextRequest,
   { params }: { params: Promise<{ id: string }> },
 ) {
-  if (!validateAdminKey(req)) return unauthorized()
+  if (!await validateAdminRequest(req)) return unauthorized()
   const { id } = await params
   const db = createServerClient()
 

@@ -1,12 +1,12 @@
 import { NextRequest } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
-import { validateAdminKey, unauthorized } from '@/lib/auth'
+import { validateAdminRequest, unauthorized } from '@/lib/auth'
 import { ArticlePatchSchema } from '@/lib/validators'
 import { revalidatePath } from 'next/cache'
 export const dynamic = 'force-dynamic'
 
 export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!validateAdminKey(req)) return unauthorized()
+  if (!await validateAdminRequest(req)) return unauthorized()
   const { id } = await params
   const body = await req.json()
   const parsed = ArticlePatchSchema.safeParse(body)
@@ -23,7 +23,7 @@ export async function PATCH(req: NextRequest, { params }: { params: Promise<{ id
 }
 
 export async function DELETE(req: NextRequest, { params }: { params: Promise<{ id: string }> }) {
-  if (!validateAdminKey(req)) return unauthorized()
+  if (!await validateAdminRequest(req)) return unauthorized()
   const { id } = await params
   const db = createServerClient()
   await db.from('articles').update({ status: 'deleted' }).eq('id', id)
