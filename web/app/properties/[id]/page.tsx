@@ -17,9 +17,9 @@ export const dynamic = 'force-dynamic'
 const TYPE_LABEL: Record<string, string> = { sale: '매매', auction: '경매', subscription: '청약' }
 const PREF_ID = '00000000-0000-0000-0000-000000000001'
 
-// 단지명 + 지역(sigungu)을 함께 검색해야 동명 단지 혼동 없음
-function getNaverUrl(complexName: string, sigungu?: string | null): string {
-  const q = sigungu ? `${complexName} ${sigungu}` : complexName
+// 도로명 주소로 검색 — 단지명보다 Naver Real Estate가 정확히 위치를 인식
+function getNaverUrl(roadAddress: string, complexName: string): string {
+  const q = roadAddress || complexName
   return `https://new.land.naver.com/search?query=${encodeURIComponent(q)}`
 }
 
@@ -312,7 +312,7 @@ export default async function PropertyDetailPage({
       {complex?.name && (
         <div className="flex flex-col gap-2">
           <a
-            href={getNaverUrl(complex.name, complex.sigungu)}
+            href={getNaverUrl(complex.road_address, complex.name)}
             target="_blank"
             rel="noopener noreferrer"
             className="flex items-center justify-center gap-2 w-full py-3 rounded-xl bg-indigo-600 text-white font-medium hover:bg-indigo-700 transition-colors"
