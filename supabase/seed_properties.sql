@@ -16,7 +16,15 @@ INSERT INTO complexes (id, name, sigungu, road_address, lat, lng, built_year, to
   ('00000001-0000-0000-0000-000000000004', '송파헬리오시티',       '서울 송파구', '서울 송파구 올림픽로 300',     37.5090, 127.1046, 2018, 9510, 'SK건설'),
   ('00000001-0000-0000-0000-000000000005', '성남판교알파돔시티',   '경기 성남시', '경기 성남시 분당구 판교역로 166', 37.3946, 127.1107, 2014, 2494, '대림산업'),
   ('00000001-0000-0000-0000-000000000006', '고덕강일리엔파크',     '서울 강동구', '서울 강동구 강일동 643',        37.5608, 127.1810, 2021,  576, '한화건설')
-ON CONFLICT (id) DO NOTHING;
+ON CONFLICT (id) DO UPDATE SET
+  name         = EXCLUDED.name,
+  sigungu      = EXCLUDED.sigungu,
+  road_address = EXCLUDED.road_address,
+  lat          = EXCLUDED.lat,
+  lng          = EXCLUDED.lng,
+  built_year   = EXCLUDED.built_year,
+  total_units  = EXCLUDED.total_units,
+  builder      = EXCLUDED.builder;
 
 -- ── 입지 점수 (location_scores) ──────────────────────────────
 INSERT INTO location_scores (complex_id, nearest_subway, nearest_subway_min, mart_min, hospital_min, park_min, school_score, school_count_1km, convenience_score) VALUES
