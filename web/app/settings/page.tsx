@@ -111,6 +111,7 @@ export default function SettingsPage() {
   const [notif, setNotif] = useState<NotifSettings>({ notify_email: true, notify_kakao: false })
   const [savingNotif, setSavingNotif] = useState(false)
   const [savedNotif, setSavedNotif] = useState(false)
+  const [notifError, setNotifError] = useState(false)
 
   useEffect(() => {
     Promise.all([
@@ -126,7 +127,7 @@ export default function SettingsPage() {
   }, [])
 
   const saveNotif = async () => {
-    setSavingNotif(true)
+    setSavingNotif(true); setNotifError(false)
     try {
       const r = await fetch('/api/notifications/settings', {
         method: 'PATCH',
@@ -136,7 +137,11 @@ export default function SettingsPage() {
       if (!r.ok) throw new Error()
       setSavedNotif(true)
       setTimeout(() => setSavedNotif(false), 3000)
-    } finally { setSavingNotif(false) }
+    } catch {
+      setNotifError(true)
+    } finally {
+      setSavingNotif(false)
+    }
   }
 
   const set = <K extends keyof Prefs>(k: K) => (v: Prefs[K]) =>
@@ -571,6 +576,7 @@ export default function SettingsPage() {
             {savingNotif ? '저장 중...' : '알림 설정 저장'}
           </button>
           {savedNotif && <span className="text-sm text-green-600 font-medium">✓ 저장되었습니다</span>}
+          {notifError && <span className="text-sm text-red-500 font-medium">저장에 실패했습니다. 다시 시도해주세요.</span>}
         </div>
       </section>
 

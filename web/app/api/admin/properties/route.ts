@@ -3,16 +3,23 @@ import { validateAdminRequest, unauthorized } from '@/lib/auth'
 
 export const dynamic = 'force-dynamic'
 
+const ALLOWED_GET_STATUS = ['active', 'sold', 'cancelled'] as const
+
 export async function GET(req: Request) {
   if (!await validateAdminRequest(req)) return unauthorized()
   const url = new URL((req as Request).url)
   const limit = Math.min(Number(url.searchParams.get('limit') ?? 20), 100)
   const offset = Number(url.searchParams.get('offset') ?? 0)
+  const status = url.searchParams.get('status')
   const db = createServerClient()
-  const { data, count, error } = await db.from('properties')
-    .select('*, property_scores(total_score)', { count: 'exact' })
+  let query = db.from('properties')
+    .select('id,title,price,property_type,status,created_at,complexes(name,sigungu),property_scores(total_score)', { count: 'exact' })
     .order('created_at', { ascending: false })
     .range(offset, offset + limit - 1)
+  if (status && (ALLOWED_GET_STATUS as readonly string[]).includes(status)) {
+    query = query.eq('status', status)
+  }
+  const { data, count, error } = await query
   if (error) return Response.json({ error: error.message }, { status: 500 })
   return Response.json({ properties: data, total: count, limit, offset })
 }

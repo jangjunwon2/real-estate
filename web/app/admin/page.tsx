@@ -123,7 +123,10 @@ export default function AdminPage() {
       fetch('/api/admin/pipeline/runs'),
       fetch('/api/admin/briefings'),
     ])
-    if (!statsRes.ok) { setError('인증 실패: 관리자 계정으로 로그인 후 접근해주세요'); return }
+    if (!statsRes.ok) {
+      setError(statsRes.status === 401 ? '인증 실패: 관리자 계정으로 로그인 후 접근해주세요' : `데이터를 불러오지 못했습니다 (${statsRes.status})`)
+      return
+    }
     setStats(await statsRes.json())
     setRuns((await runsRes.json()).runs ?? [])
     setBriefings((await briefRes.json()).briefings ?? [])

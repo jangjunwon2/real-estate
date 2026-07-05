@@ -13,6 +13,7 @@ import RegulationNotice from '@/components/properties/RegulationNotice'
 import SubscriptionScoreCard from '@/components/properties/SubscriptionScoreCard'
 import LocationEnvironmentCard from '@/components/properties/LocationEnvironmentCard'
 import { calcLoanProducts, type UserFinance } from '@/lib/koreanRealEstate'
+import FavoriteButton from '@/components/FavoriteButton'
 
 export const dynamic = 'force-dynamic'
 
@@ -84,7 +85,17 @@ export default async function PropertyDetailPage({
   const { id } = await params
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
-  const [property, prefs] = await Promise.all([getProperty(id), getPrefs(user?.id ?? null)])
+  const db = createServerClient()
+  const [property, prefs, favRes] = await Promise.all([
+    getProperty(id),
+    getPrefs(user?.id ?? null),
+    user
+      ? db.from('favorites').select('id').eq('user_id', user.id).eq('property_id', id).maybeSingle()
+      : Promise.resolve({ data: null }),
+  ])
+  const favData = (favRes as any)?.data
+  const isFavorited = !!favData
+  const favoriteId: string | null = favData?.id ?? null
   if (!property) notFound()
 
   const complex = property.complexes
@@ -145,9 +156,18 @@ export default async function PropertyDetailPage({
               <p className="text-sm text-gray-500 mt-0.5">{complex.sigungu}</p>
             )}
           </div>
-          <span className="shrink-0 px-2 py-0.5 rounded bg-gray-100 text-sm text-gray-600">
-            {typeLabel}
-          </span>
+          <div className="flex items-center gap-2 shrink-0">
+            <span className="px-2 py-0.5 rounded bg-gray-100 text-sm text-gray-600">
+              {typeLabel}
+            </span>
+            {user && (
+              <FavoriteButton
+                propertyId={id}
+                initialFavorited={isFavorited}
+                initialFavoriteId={favoriteId}
+              />
+            )}
+          </div>
         </div>
         <EligibilityBadge propertyType={property.property_type} price={property.price} />
       </div>

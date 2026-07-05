@@ -3,8 +3,14 @@ import ArticleList from '@/components/ArticleList'
 import CategoryFilter from '@/components/articles/CategoryFilter'
 import { TITLE_KEYWORD_FILTER } from '@/lib/articleFilter'
 import type { Article } from '@/types'
+import type { Metadata } from 'next'
 
 export const dynamic = 'force-dynamic'
+
+export const metadata: Metadata = {
+  title: '부동산 뉴스',
+  description: '청약·경매·정책·금리 등 신혼부부 생애최초 주택 구매에 필요한 부동산 뉴스를 AI가 선별해 드립니다.',
+}
 
 
 async function getArticles(category?: string, date?: string) {
