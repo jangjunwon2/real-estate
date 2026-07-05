@@ -5,6 +5,7 @@ import QuickPrefsPanel from '@/components/properties/QuickPrefsPanel'
 import type { Property } from '@/types'
 import Link from 'next/link'
 import type { Metadata } from 'next'
+import { formatPrice } from '@/lib/formatPrice'
 
 export const metadata: Metadata = {
   title: '매물 분석',
@@ -13,6 +14,9 @@ export const metadata: Metadata = {
 
 export const dynamic = 'force-dynamic'
 
+const TYPE_LABEL: Record<string, string> = {
+  sale: '매매', auction: '경매', subscription: '청약',
+}
 
 const TYPE_TABS = [
   { value: '', label: '전체' },
@@ -21,20 +25,32 @@ const TYPE_TABS = [
   { value: 'subscription', label: '청약' },
 ]
 
+const TYPE_TAB_ACTIVE: Record<string, string> = {
+  '': 'bg-white text-gray-900 shadow-sm',
+  sale: 'bg-indigo-600 text-white shadow-sm',
+  auction: 'bg-orange-500 text-white shadow-sm',
+  subscription: 'bg-emerald-600 text-white shadow-sm',
+}
+
+function scoreColor(score: number) {
+  if (score >= 80) return 'text-emerald-600'
+  if (score >= 65) return 'text-indigo-600'
+  if (score >= 50) return 'text-amber-600'
+  return 'text-red-500'
+}
+
 async function getProperties(type?: string, sort?: string) {
   const db = createServerClient()
   let query = db.from('properties')
     .select('id,title,price,property_type,source_url,created_at,complex_id,source,floor,area_sqm,auction_date,bid_count,subscription_start,subscription_end,status,complexes(name,sigungu,lat,lng),property_scores(total_score,ai_summary,pros,cons,personalized_reason)')
     .eq('status', 'active')
     .limit(30)
-
   if (type) query = query.eq('property_type', type)
   if (sort === 'score') {
     query = query.order('total_score', { ascending: false, foreignTable: 'property_scores' })
   } else {
     query = query.order('created_at', { ascending: false })
   }
-
   const { data } = await query
   return (data ?? []) as unknown as Property[]
 }
@@ -46,7 +62,7 @@ async function getSubscriptionArticles() {
     .eq('status', 'active')
     .eq('category', '청약')
     .order('published_at', { ascending: false })
-    .limit(10)
+    .limit(8)
   return data ?? []
 }
 
@@ -82,88 +98,179 @@ export default async function PropertiesPage({
     return `/properties${s ? `?${s}` : ''}`
   }
 
+  // Aggregate stats
+  const scoredProps = properties.filter(p => p.property_scores)
+  const avgScore = scoredProps.length > 0
+    ? Math.round(scoredProps.reduce((a, p) => a + (p.property_scores?.total_score ?? 0), 0) / scoredProps.length)
+    : null
+  const pricedProps = properties.filter(p => p.price)
+  const avgPrice = pricedProps.length > 0
+    ? Math.round(pricedProps.reduce((a, p) => a + (p.price ?? 0), 0) / pricedProps.length)
+    : null
+
+  const regions = (prefs?.regions as string[] | null) ?? []
+  const activeBg = TYPE_TAB_ACTIVE[type ?? ''] ?? TYPE_TAB_ACTIVE['']
+
   return (
-    <main className="max-w-5xl mx-auto px-4 py-8 space-y-8">
-      <div className="flex items-start justify-between">
-        <div>
-          <h1 className="text-xl font-bold">매물 분석</h1>
-          {prefs ? (
-            <p className="text-sm text-gray-500 mt-0.5">
-              관심 지역: {((prefs.regions as string[]) ?? []).join(', ') || '미설정'} · 예산: {(prefs.budget_min ?? 0).toLocaleString()}~{(prefs.budget_max ?? 0).toLocaleString()}만원
+    <main className="max-w-5xl mx-auto px-4 py-6 space-y-5">
+
+      {/* ── 헤더 카드 ── */}
+      <div className="rounded-2xl bg-gradient-to-br from-slate-50 via-white to-indigo-50/60 border border-gray-200 p-5 space-y-4">
+        <div className="flex items-start justify-between gap-3">
+          <div>
+            <h1 className="text-2xl font-black text-gray-900 leading-tight">매물 분석</h1>
+            <p className="text-sm text-gray-400 mt-0.5">
+              AI가 분석한 {type ? TYPE_LABEL[type] + ' ' : ''}매물
+              {properties.length > 0 && (
+                <> · <span className="font-semibold text-gray-600">{properties.length}건</span></>
+              )}
             </p>
-          ) : (
-            <p className="text-sm text-amber-600 mt-0.5">내 정보를 설정하면 맞춤 추천을 받을 수 있어요</p>
+          </div>
+          {prefs && (
+            <Link href="/settings" className="shrink-0 text-xs text-indigo-600 hover:text-indigo-800 transition-colors mt-1">
+              설정 수정 →
+            </Link>
           )}
         </div>
-        {prefs && (
-          <Link href="/settings" className="text-xs text-indigo-600 hover:underline mt-1 shrink-0">
-            수정 →
-          </Link>
+
+        {/* Aggregate stats */}
+        {properties.length > 0 && (
+          <div className="flex gap-5 flex-wrap">
+            <div>
+              <p className="text-3xl font-black text-gray-900 leading-none">{properties.length}</p>
+              <p className="text-[11px] text-gray-400 mt-0.5">총 매물</p>
+            </div>
+            {avgScore !== null && (
+              <div>
+                <p className={`text-3xl font-black leading-none ${scoreColor(avgScore)}`}>{avgScore}</p>
+                <p className="text-[11px] text-gray-400 mt-0.5">평균 AI 점수</p>
+              </div>
+            )}
+            {avgPrice !== null && (
+              <div>
+                <p className="text-3xl font-black text-gray-900 leading-none">{formatPrice(avgPrice)}</p>
+                <p className="text-[11px] text-gray-400 mt-0.5">평균 가격</p>
+              </div>
+            )}
+          </div>
+        )}
+
+        {/* Prefs summary or CTA */}
+        {prefs ? (
+          <div className="flex flex-wrap gap-1.5">
+            {regions.length > 0 ? regions.map(r => (
+              <span key={r} className="text-[11px] bg-indigo-50 text-indigo-700 border border-indigo-100 px-2.5 py-0.5 rounded-full font-medium">{r}</span>
+            )) : (
+              <span className="text-[11px] text-gray-400">관심 지역 미설정</span>
+            )}
+            {(prefs.budget_min || prefs.budget_max) && (
+              <span className="text-[11px] bg-gray-100 text-gray-600 px-2.5 py-0.5 rounded-full font-medium">
+                예산 {prefs.budget_min ? (prefs.budget_min as number).toLocaleString() : '0'}~{prefs.budget_max ? (prefs.budget_max as number).toLocaleString() : '∞'}만원
+              </span>
+            )}
+          </div>
+        ) : (
+          <div className="flex items-center justify-between rounded-xl bg-amber-50 border border-amber-100 px-4 py-3">
+            <p className="text-xs text-amber-700">내 정보를 설정하면 대출 적격성·맞춤 추천을 받을 수 있어요</p>
+            <Link href="/settings" className="shrink-0 text-xs font-bold text-amber-700 underline ml-3">설정하기</Link>
+          </div>
         )}
       </div>
 
+      {/* QuickPrefsPanel (prefs 없을 때) */}
       {!prefs && <QuickPrefsPanel />}
 
-      <div className="flex flex-wrap items-center gap-4">
-        <div className="flex gap-2">
-          {TYPE_TABS.map(tab => (
-            <a
-              key={tab.value}
-              href={buildHref({ type: tab.value || undefined, sort })}
-              className={`px-3 py-1.5 rounded-full text-sm border transition-colors ${
-                (type ?? '') === tab.value
-                  ? 'bg-gray-900 text-white border-gray-900'
-                  : 'border-gray-200 text-gray-600 hover:border-gray-400'
-              }`}
-            >
-              {tab.label}
-            </a>
-          ))}
+      {/* ── 필터 + 정렬 ── */}
+      <div className="flex flex-wrap items-center gap-3 justify-between">
+        {/* Type pill group */}
+        <div className="flex bg-gray-100 rounded-full p-1 gap-0.5">
+          {TYPE_TABS.map(tab => {
+            const isActive = (type ?? '') === tab.value
+            return (
+              <a
+                key={tab.value}
+                href={buildHref({ type: tab.value || undefined, sort })}
+                className={`px-4 py-1.5 rounded-full text-sm font-medium transition-all ${
+                  isActive ? activeBg : 'text-gray-500 hover:text-gray-700'
+                }`}
+              >
+                {tab.label}
+              </a>
+            )
+          })}
         </div>
-        <div className="flex gap-2 ml-auto">
-          <a href={buildHref({ type, sort: undefined })} className={`px-3 py-1 rounded text-sm ${!sort ? 'bg-gray-100 font-medium' : 'text-gray-500 hover:text-gray-800'}`}>최신순</a>
-          <a href={buildHref({ type, sort: 'score' })} className={`px-3 py-1 rounded text-sm ${sort === 'score' ? 'bg-gray-100 font-medium' : 'text-gray-500 hover:text-gray-800'}`}>AI 점수순</a>
+
+        {/* Sort pills */}
+        <div className="flex gap-1.5">
+          <a
+            href={buildHref({ type, sort: undefined })}
+            className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-all ${
+              !sort
+                ? 'bg-gray-900 text-white'
+                : 'text-gray-500 border border-gray-200 hover:text-gray-800 hover:border-gray-400'
+            }`}
+          >
+            최신순
+          </a>
+          <a
+            href={buildHref({ type, sort: 'score' })}
+            className={`px-3.5 py-1.5 rounded-full text-sm font-medium transition-all ${
+              sort === 'score'
+                ? 'bg-gray-900 text-white'
+                : 'text-gray-500 border border-gray-200 hover:text-gray-800 hover:border-gray-400'
+            }`}
+          >
+            AI 점수순
+          </a>
         </div>
       </div>
 
+      {/* ── 매물 목록 or 빈 상태 ── */}
       {properties.length > 0 ? (
-        <>
-          <div className="text-sm text-gray-400">{properties.length}건</div>
-          <PropertyGrid properties={properties} />
-        </>
+        <PropertyGrid properties={properties} />
       ) : (
-        <div className="space-y-6">
-          <div className="rounded-xl border border-dashed border-gray-200 p-6 text-center space-y-2">
-            <p className="text-gray-500 text-sm">실시간 매물 데이터를 수집 중입니다.</p>
-            <p className="text-gray-400 text-xs">경매·청약 매물은 데이터 소스 연동 후 표시됩니다.</p>
+        <div className="space-y-6 py-4">
+          <div className="rounded-2xl border border-dashed border-gray-200 py-16 text-center space-y-3">
+            <p className="text-5xl">🏠</p>
+            <h2 className="text-base font-semibold text-gray-700">매물을 수집 중입니다</h2>
+            <p className="text-sm text-gray-400 leading-relaxed max-w-xs mx-auto">
+              경매·청약·매매 데이터를 연동하고 있습니다.<br />잠시 후 다시 확인해 주세요.
+            </p>
           </div>
 
+          {/* 청약 뉴스 fallback */}
           {subscriptionArticles.length > 0 && (
-            <section>
-              <h2 className="text-base font-semibold mb-3 text-gray-800">📢 최신 청약 뉴스</h2>
-              <div className="divide-y divide-gray-100 rounded-xl border border-gray-100">
+            <section className="space-y-3">
+              <h2 className="text-sm font-bold text-gray-700 flex items-center gap-2">
+                <span>📢</span> 최신 청약 뉴스
+              </h2>
+              <div className="space-y-2">
                 {subscriptionArticles.map(article => (
                   <a
                     key={article.id}
                     href={article.url}
                     target="_blank"
                     rel="noopener noreferrer"
-                    className="flex items-start gap-3 p-4 hover:bg-gray-50 transition-colors"
+                    className="flex items-start gap-3 rounded-2xl border border-gray-100 p-4 hover:border-indigo-200 hover:bg-indigo-50/30 transition-all group"
                   >
                     <div className="flex-1 min-w-0">
-                      <p className="text-sm font-medium text-gray-900 line-clamp-2">{article.title}</p>
+                      <p className="text-sm font-semibold text-gray-900 line-clamp-2 group-hover:text-indigo-700 transition-colors">
+                        {article.title}
+                      </p>
                       {article.summary && (
                         <p className="text-xs text-gray-500 mt-1 line-clamp-1">{article.summary}</p>
                       )}
                       {((article.regions ?? []) as string[]).length > 0 && (
-                        <div className="flex gap-1 mt-1.5">
+                        <div className="flex gap-1 mt-2">
                           {((article.regions ?? []) as string[]).slice(0, 3).map((r: string) => (
-                            <span key={r} className="text-[10px] px-1.5 py-0.5 rounded bg-indigo-50 text-indigo-600">{r}</span>
+                            <span key={r} className="text-[10px] px-2 py-0.5 rounded-full bg-indigo-50 text-indigo-600 font-medium border border-indigo-100">
+                              {r}
+                            </span>
                           ))}
                         </div>
                       )}
                     </div>
-                    <span className="text-xs text-gray-400 shrink-0 mt-0.5">
+                    <span className="text-[11px] text-gray-400 shrink-0 mt-0.5 font-medium">
                       {new Date(article.published_at).toLocaleDateString('ko-KR', { month: 'short', day: 'numeric' })}
                     </span>
                   </a>
