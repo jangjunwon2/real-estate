@@ -33,8 +33,8 @@ function LoginForm() {
       setError('이메일 또는 비밀번호가 올바르지 않습니다.')
       setLoading(false)
     } else {
-      router.push(redirectTo)
-      router.refresh()
+      // replace로 전체 페이지 로드 — push+refresh 이중 렌더링 없이 새 쿠키를 즉시 반영
+      window.location.replace(redirectTo)
     }
   }
 

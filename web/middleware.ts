@@ -40,7 +40,9 @@ export async function middleware(req: NextRequest) {
     }
   )
 
-  const { data: { user } } = await supabase.auth.getUser()
+  // getSession()은 쿠키의 JWT를 로컬에서 검증 (네트워크 불필요) → getUser() 대비 100-200ms 절약
+  const { data: { session } } = await supabase.auth.getSession()
+  const user = session?.user ?? null
 
   if (!user) {
     const loginUrl = new URL('/login', req.url)
