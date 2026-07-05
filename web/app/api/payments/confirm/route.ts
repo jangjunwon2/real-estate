@@ -1,20 +1,22 @@
 import { NextRequest } from 'next/server'
 import { createServerClient } from '@/lib/supabase'
+import { createSupabaseServerClient } from '@/lib/supabase-server'
 
 const TIER_PRICES: Record<string, number> = { basic: 9900, pro: 29900 }
 
 export async function POST(req: NextRequest) {
-  const { paymentKey, orderId, amount, userId, tier } = await req.json()
+  // userId는 세션에서만 — 바디 값은 신뢰하지 않음
+  const supabase = await createSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return Response.json({ error: 'unauthorized' }, { status: 401 })
+  const userId = user.id
+
+  const { paymentKey, orderId, amount, tier } = await req.json()
 
   // 서버에서 금액 검증 — 클라이언트 전송값 신뢰 금지
   const expectedAmount = TIER_PRICES[tier]
   if (!expectedAmount || Number(amount) !== expectedAmount) {
     return Response.json({ error: 'invalid amount or tier' }, { status: 400 })
-  }
-  // userId UUID 형식 검증
-  const UUID_RE = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-  if (!userId || !UUID_RE.test(String(userId))) {
-    return Response.json({ error: 'invalid userId' }, { status: 400 })
   }
 
   const tossSecretKey = process.env.TOSS_SECRET_KEY!

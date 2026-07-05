@@ -27,7 +27,7 @@ export default function FavoriteButton({ propertyId, initialFavorited, initialFa
         if (res.ok) {
           const data = await res.json()
           setFavorited(true)
-          setFavoriteId(data.id ?? null)
+          setFavoriteId(data.favorite?.id ?? null)
         }
       }
     } finally {

@@ -23,7 +23,7 @@ async function getData() {
       .gte('generated_at', `${today}T00:00:00+09:00`)
       .order('generated_at', { ascending: false })
       .limit(1)
-      .single(),
+      .maybeSingle(),
     db.from('articles')
       .select('id,title,url,source,category,importance,urgent,summary,published_at,created_at,status,regions')
       .eq('status', 'active')

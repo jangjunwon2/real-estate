@@ -1,8 +1,15 @@
 import { createServerClient } from '@/lib/supabase'
+import { createSupabaseServerClient } from '@/lib/supabase-server'
 import PropertyGrid from '@/components/PropertyGrid'
 import QuickPrefsPanel from '@/components/properties/QuickPrefsPanel'
 import type { Property } from '@/types'
 import Link from 'next/link'
+import type { Metadata } from 'next'
+
+export const metadata: Metadata = {
+  title: '매물 분석',
+  description: '청약·경매·매매 매물을 AI 점수로 분석. 신혼부부·생애최초 대출 적격성을 한눈에 확인하세요.',
+}
 
 export const dynamic = 'force-dynamic'
 
@@ -43,12 +50,13 @@ async function getSubscriptionArticles() {
   return data ?? []
 }
 
-async function getPreferences() {
+async function getPreferences(userId: string | null) {
+  if (!userId) return null
   const db = createServerClient()
   const { data } = await db.from('user_preferences')
     .select('regions,budget_min,budget_max,property_types')
-    .eq('id', '00000000-0000-0000-0000-000000000001')
-    .single()
+    .eq('user_id', userId)
+    .maybeSingle()
   return data
 }
 
@@ -58,10 +66,12 @@ export default async function PropertiesPage({
   searchParams: Promise<{ type?: string; sort?: string }>
 }) {
   const { type, sort } = await searchParams
+  const supabase = await createSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
   const [properties, subscriptionArticles, prefs] = await Promise.all([
     getProperties(type, sort),
     getSubscriptionArticles(),
-    getPreferences().catch(() => null),
+    getPreferences(user?.id ?? null).catch(() => null),
   ])
 
   const buildHref = (params: Record<string, string | undefined>) => {

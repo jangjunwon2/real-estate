@@ -40,7 +40,8 @@ export async function PATCH(req: NextRequest) {
 
   const db = createServerClient()
   const { error } = await db.from('user_profiles')
-    .upsert({ id: user.id, email: user.email, ...patch, updated_at: new Date().toISOString() })
+    .update({ ...patch, updated_at: new Date().toISOString() })
+    .eq('id', user.id)
 
   if (error) {
     logError('notifications/settings PATCH', error)
