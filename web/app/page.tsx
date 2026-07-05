@@ -1,4 +1,5 @@
 import { createServerClient } from '@/lib/supabase'
+import { createSupabaseServerClient } from '@/lib/supabase-server'
 import BriefingCard from '@/components/BriefingCard'
 import ArticleList from '@/components/ArticleList'
 import PropertyGrid from '@/components/PropertyGrid'
@@ -12,6 +13,9 @@ export const dynamic = 'force-dynamic'
 async function getData() {
   const db = createServerClient()
   const today = new Date().toISOString().slice(0, 10)
+
+  const supabase = await createSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
 
   const [briefingRes, articlesRes, propertiesRes, prefsRes] = await Promise.all([
     db.from('briefings')
@@ -31,10 +35,12 @@ async function getData() {
       .eq('status', 'active')
       .gte('created_at', `${today}T00:00:00+09:00`)
       .limit(6),
-    db.from('user_preferences')
-      .select('regions,budget_max,is_newlywed,is_first_buyer')
-      .eq('id', '00000000-0000-0000-0000-000000000001')
-      .single(),
+    user
+      ? db.from('user_preferences')
+          .select('regions,budget_max,is_newlywed,is_first_buyer')
+          .eq('user_id', user.id)
+          .maybeSingle()
+      : Promise.resolve({ data: null }),
   ])
 
   return {

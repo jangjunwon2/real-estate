@@ -1,4 +1,6 @@
 import { createServerClient } from '@/lib/supabase'
+import { createSupabaseServerClient } from '@/lib/supabase-server'
+import type { Metadata } from 'next'
 import Link from 'next/link'
 import { notFound } from 'next/navigation'
 import { formatPrice } from '@/lib/formatPrice'
@@ -15,7 +17,6 @@ import { calcLoanProducts, type UserFinance } from '@/lib/koreanRealEstate'
 export const dynamic = 'force-dynamic'
 
 const TYPE_LABEL: Record<string, string> = { sale: '매매', auction: '경매', subscription: '청약' }
-const PREF_ID = '00000000-0000-0000-0000-000000000001'
 
 function getExternalLink(propertyType: string, complexName: string): { url: string; label: string; className: string } {
   if (propertyType === 'auction') return {
@@ -44,12 +45,35 @@ async function getProperty(id: string) {
   return data as any | null
 }
 
-async function getPrefs() {
+async function getPrefs(userId: string | null) {
+  if (!userId) return null
   try {
     const db = createServerClient()
-    const { data } = await db.from('user_preferences').select('*').eq('id', PREF_ID).single()
+    const { data } = await db.from('user_preferences').select('*').eq('user_id', userId).maybeSingle()
     return data
   } catch { return null }
+}
+
+export async function generateMetadata({
+  params,
+}: {
+  params: Promise<{ id: string }>
+}): Promise<Metadata> {
+  const { id } = await params
+  const property = await getProperty(id)
+  if (!property) return {}
+  const name = property.complexes?.name ?? property.title ?? '매물'
+  const type = TYPE_LABEL[property.property_type] ?? ''
+  const sigungu = property.complexes?.sigungu ?? ''
+  const title = `${name} ${sigungu ? `(${sigungu})` : ''} — ${type}`
+  const description = sigungu
+    ? `${sigungu} · ${type}${property.price ? ' · ' + formatPrice(property.price) : ''}`
+    : `부동산AI 매물 상세`
+  return {
+    title,
+    description,
+    openGraph: { title, description, type: 'website' },
+  }
 }
 
 export default async function PropertyDetailPage({
@@ -58,7 +82,9 @@ export default async function PropertyDetailPage({
   params: Promise<{ id: string }>
 }) {
   const { id } = await params
-  const [property, prefs] = await Promise.all([getProperty(id), getPrefs()])
+  const supabase = await createSupabaseServerClient()
+  const { data: { user } } = await supabase.auth.getUser()
+  const [property, prefs] = await Promise.all([getProperty(id), getPrefs(user?.id ?? null)])
   if (!property) notFound()
 
   const complex = property.complexes

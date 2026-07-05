@@ -98,6 +98,8 @@ function priceLabel(p: number): string {
     : `${p.toLocaleString()}만`
 }
 
+interface NotifSettings { notify_email: boolean; notify_kakao: boolean }
+
 export default function SettingsPage() {
   const [prefs, setPrefs] = useState<Prefs>(DEFAULT_PREFS)
   const [regionInput, setRegionInput] = useState('')
@@ -106,13 +108,36 @@ export default function SettingsPage() {
   const [saveError, setSaveError] = useState(false)
   const [loading, setLoading] = useState(true)
   const [loadError, setLoadError] = useState(false)
+  const [notif, setNotif] = useState<NotifSettings>({ notify_email: true, notify_kakao: false })
+  const [savingNotif, setSavingNotif] = useState(false)
+  const [savedNotif, setSavedNotif] = useState(false)
 
   useEffect(() => {
-    fetch('/api/preferences')
-      .then(r => { if (!r.ok) throw new Error(); return r.json() })
-      .then(data => { setPrefs({ ...DEFAULT_PREFS, ...data }); setLoading(false) })
+    Promise.all([
+      fetch('/api/preferences').then(r => r.ok ? r.json() : Promise.reject()),
+      fetch('/api/notifications/settings').then(r => r.ok ? r.json() : Promise.reject()),
+    ])
+      .then(([data, notifData]) => {
+        setPrefs({ ...DEFAULT_PREFS, ...data })
+        setNotif({ notify_email: notifData.notify_email ?? true, notify_kakao: notifData.notify_kakao ?? false })
+        setLoading(false)
+      })
       .catch(() => { setLoadError(true); setLoading(false) })
   }, [])
+
+  const saveNotif = async () => {
+    setSavingNotif(true)
+    try {
+      const r = await fetch('/api/notifications/settings', {
+        method: 'PATCH',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(notif),
+      })
+      if (!r.ok) throw new Error()
+      setSavedNotif(true)
+      setTimeout(() => setSavedNotif(false), 3000)
+    } finally { setSavingNotif(false) }
+  }
 
   const set = <K extends keyof Prefs>(k: K) => (v: Prefs[K]) =>
     setPrefs(p => ({ ...p, [k]: v }))
@@ -512,11 +537,48 @@ export default function SettingsPage() {
         </div>
       </section>
 
+      {/* ══ 7. 알림 설정 ════════════════════════════════════════════════ */}
+      <section className="space-y-4">
+        <h2 className="font-semibold text-gray-800">알림 설정</h2>
+        <div className="space-y-3">
+          {([
+            { key: 'notify_email' as const, label: '이메일 알림', desc: '일일 브리핑 및 긴급 뉴스를 이메일로 수신합니다' },
+            { key: 'notify_kakao' as const, label: '카카오 알림', desc: '카카오 알림톡으로 중요 소식을 수신합니다 (준비 중)' },
+          ]).map(({ key, label, desc }) => (
+            <div key={key} className="flex items-center justify-between rounded-xl border border-gray-200 px-4 py-3">
+              <div>
+                <p className="text-sm font-medium text-gray-800">{label}</p>
+                <p className="text-xs text-gray-400 mt-0.5">{desc}</p>
+              </div>
+              <button
+                onClick={() => setNotif(n => ({ ...n, [key]: !n[key] }))}
+                className={`relative inline-flex h-6 w-11 shrink-0 rounded-full border-2 border-transparent transition-colors cursor-pointer ${
+                  notif[key] ? 'bg-indigo-600' : 'bg-gray-200'
+                }`}
+                role="switch"
+                aria-checked={notif[key]}
+              >
+                <span className={`inline-block h-5 w-5 rounded-full bg-white shadow transform transition-transform ${
+                  notif[key] ? 'translate-x-5' : 'translate-x-0'
+                }`} />
+              </button>
+            </div>
+          ))}
+        </div>
+        <div className="flex items-center gap-3">
+          <button onClick={saveNotif} disabled={savingNotif}
+            className="px-4 py-2 rounded-lg bg-gray-800 text-white text-sm font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors">
+            {savingNotif ? '저장 중...' : '알림 설정 저장'}
+          </button>
+          {savedNotif && <span className="text-sm text-green-600 font-medium">✓ 저장되었습니다</span>}
+        </div>
+      </section>
+
       {/* ══ 저장 ════════════════════════════════════════════════════════ */}
       <div className="flex items-center gap-3 pb-4">
         <button onClick={save} disabled={saving}
           className="px-6 py-2.5 rounded-lg bg-gray-900 text-white text-sm font-medium hover:bg-gray-700 disabled:opacity-50 transition-colors">
-          {saving ? '저장 중...' : '저장'}
+          {saving ? '저장 중...' : '내 정보 저장'}
         </button>
         {saved && <span className="text-sm text-green-600 font-medium">✓ 저장되었습니다</span>}
         {saveError && <span className="text-sm text-red-500 font-medium">저장에 실패했습니다. 다시 시도해주세요.</span>}

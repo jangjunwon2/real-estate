@@ -1,5 +1,5 @@
 'use client'
-import { useState } from 'react'
+import { useEffect, useState } from 'react'
 
 interface Stats {
   articles: { today: number; urgent_today: number; hidden: number }
@@ -38,7 +38,18 @@ interface Article {
   created_at: string
 }
 
-type Tab = 'runs' | 'briefings' | 'articles'
+interface Property {
+  id: string
+  title: string | null
+  price: number | null
+  property_type: string
+  status: string
+  created_at: string
+  complexes: { name: string; sigungu: string } | null
+  property_scores: { total_score: number } | null
+}
+
+type Tab = 'runs' | 'briefings' | 'articles' | 'properties'
 
 const STATUS_COLOR: Record<string, string> = {
   success: 'text-green-600',
@@ -61,6 +72,15 @@ const CATEGORY_COLOR: Record<string, string> = {
   기타: 'bg-gray-100 text-gray-600',
 }
 
+const PROPERTY_TYPE_LABEL: Record<string, string> = { sale: '매매', auction: '경매', subscription: '청약' }
+
+function formatPrice(p: number | null): string {
+  if (!p) return '—'
+  const eok = Math.floor(p / 10000)
+  const man = p % 10000
+  return eok > 0 ? `${eok}억${man > 0 ? ` ${man.toLocaleString()}만` : ''}` : `${p.toLocaleString()}만`
+}
+
 export default function AdminPage() {
   const [stats, setStats] = useState<Stats | null>(null)
   const [runs, setRuns] = useState<Run[]>([])
@@ -69,44 +89,53 @@ export default function AdminPage() {
   const [articlesTotal, setArticlesTotal] = useState(0)
   const [articleStatus, setArticleStatus] = useState<'active' | 'hidden'>('active')
   const [articleDate, setArticleDate] = useState('')
-  const [adminKey, setAdminKey] = useState('')
+  const [properties, setProperties] = useState<Property[]>([])
+  const [propertiesTotal, setPropertiesTotal] = useState(0)
+  const [propertyStatus, setPropertyStatus] = useState<'active' | 'sold' | 'cancelled'>('active')
   const [loading, setLoading] = useState(false)
   const [actionId, setActionId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [tab, setTab] = useState<Tab>('runs')
 
-  const headers = { 'X-Admin-Key': adminKey }
-
   const fetchArticles = async (status = articleStatus, date = articleDate) => {
     const params = new URLSearchParams({ status, limit: '50' })
     if (date) params.set('date', date)
-    const res = await fetch(`/api/admin/articles?${params}`, { headers })
+    const res = await fetch(`/api/admin/articles?${params}`)
     if (!res.ok) return
     const json = await res.json()
     setArticles(json.articles ?? [])
     setArticlesTotal(json.total ?? 0)
   }
 
+  const fetchProperties = async (status = propertyStatus) => {
+    const params = new URLSearchParams({ status, limit: '50' })
+    const res = await fetch(`/api/admin/properties?${params}`)
+    if (!res.ok) return
+    const json = await res.json()
+    setProperties(json.properties ?? [])
+    setPropertiesTotal(json.total ?? 0)
+  }
+
   const fetchAll = async () => {
     setError('')
     const [statsRes, runsRes, briefRes] = await Promise.all([
-      fetch('/api/admin/stats', { headers }),
-      fetch('/api/admin/pipeline/runs', { headers }),
-      fetch('/api/admin/briefings', { headers }),
+      fetch('/api/admin/stats'),
+      fetch('/api/admin/pipeline/runs'),
+      fetch('/api/admin/briefings'),
     ])
-    if (!statsRes.ok) { setError('인증 실패: Admin Key를 확인하세요'); return }
+    if (!statsRes.ok) { setError('인증 실패: 관리자 계정으로 로그인 후 접근해주세요'); return }
     setStats(await statsRes.json())
     setRuns((await runsRes.json()).runs ?? [])
     setBriefings((await briefRes.json()).briefings ?? [])
-    await fetchArticles()
+    await Promise.all([fetchArticles(), fetchProperties()])
   }
+
+  useEffect(() => { fetchAll() }, [])
 
   const triggerPipeline = async () => {
     setLoading(true)
     try {
-      const res = await fetch('/api/admin/pipeline/trigger', {
-        method: 'POST', headers,
-      })
+      const res = await fetch('/api/admin/pipeline/trigger', { method: 'POST' })
       if (res.ok) { alert('파이프라인 트리거 완료 (GitHub Actions 실행됨)'); setTimeout(fetchAll, 3000) }
       else alert('트리거 실패 — GITHUB_TOKEN/GITHUB_REPO 환경변수 확인')
     } finally { setLoading(false) }
@@ -117,7 +146,7 @@ export default function AdminPage() {
     const newStatus = article.status === 'active' ? 'hidden' : 'active'
     await fetch(`/api/admin/articles/${article.id}`, {
       method: 'PATCH',
-      headers: { ...headers, 'Content-Type': 'application/json' },
+      headers: { 'Content-Type': 'application/json' },
       body: JSON.stringify({ status: newStatus }),
     })
     setActionId(null)
@@ -126,9 +155,28 @@ export default function AdminPage() {
 
   const reclassify = async (id: string) => {
     setActionId(id)
-    await fetch(`/api/admin/articles/${id}/reclassify`, { method: 'POST', headers })
+    await fetch(`/api/admin/articles/${id}/reclassify`, { method: 'POST' })
     setActionId(null)
     await fetchArticles()
+  }
+
+  const rescoreProperty = async (id: string) => {
+    setActionId(id)
+    await fetch(`/api/admin/properties/${id}/rescore`, { method: 'POST' })
+    setActionId(null)
+    await fetchProperties()
+  }
+
+  const togglePropertyStatus = async (p: Property) => {
+    setActionId(p.id)
+    const newStatus = p.status === 'active' ? 'sold' : 'active'
+    await fetch(`/api/admin/properties/${p.id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status: newStatus }),
+    })
+    setActionId(null)
+    await fetchProperties()
   }
 
   const handleStatusChange = async (s: 'active' | 'hidden') => {
@@ -141,6 +189,11 @@ export default function AdminPage() {
     await fetchArticles(articleStatus, d)
   }
 
+  const handlePropertyStatusChange = async (s: 'active' | 'sold' | 'cancelled') => {
+    setPropertyStatus(s)
+    await fetchProperties(s)
+  }
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-8 space-y-6">
       <div className="flex items-center justify-between">
@@ -148,24 +201,13 @@ export default function AdminPage() {
         <a href="/" className="text-sm text-gray-500 hover:underline">← 홈</a>
       </div>
 
-      {/* 인증 */}
-      <div className="flex gap-2">
-        <input
-          type="password"
-          placeholder="Admin Key (ADMIN_API_KEY)"
-          value={adminKey}
-          onChange={e => setAdminKey(e.target.value)}
-          onKeyDown={e => e.key === 'Enter' && fetchAll()}
-          className="flex-1 border rounded px-3 py-2 text-sm font-mono"
-        />
-        <button
-          onClick={fetchAll}
-          className="px-4 py-2 bg-gray-900 text-white text-sm rounded hover:bg-gray-700"
-        >
-          조회
-        </button>
-      </div>
-      {error && <p className="text-red-500 text-sm">{error}</p>}
+      {error && (
+        <div className="rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700">{error}</div>
+      )}
+
+      {!stats && !error && (
+        <p className="text-sm text-gray-400">데이터 로드 중...</p>
+      )}
 
       {stats && (
         <>
@@ -206,7 +248,7 @@ export default function AdminPage() {
 
           {/* 탭 */}
           <div className="border-b flex gap-4">
-            {(['runs', 'briefings', 'articles'] as const).map(t => (
+            {(['runs', 'briefings', 'articles', 'properties'] as const).map(t => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
@@ -214,7 +256,7 @@ export default function AdminPage() {
                   tab === t ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-400 hover:text-gray-600'
                 }`}
               >
-                {t === 'runs' ? '실행 이력' : t === 'briefings' ? '브리핑 이력' : '기사 관리'}
+                {t === 'runs' ? '실행 이력' : t === 'briefings' ? '브리핑 이력' : t === 'articles' ? '기사 관리' : '매물 관리'}
               </button>
             ))}
           </div>
@@ -266,7 +308,6 @@ export default function AdminPage() {
           {/* 기사 관리 */}
           {tab === 'articles' && (
             <div className="space-y-3">
-              {/* 필터 바 */}
               <div className="flex flex-wrap items-center gap-2">
                 <div className="flex rounded-lg border overflow-hidden text-sm">
                   {(['active', 'hidden'] as const).map(s => (
@@ -286,10 +327,7 @@ export default function AdminPage() {
                   className="border rounded px-2 py-1.5 text-sm"
                 />
                 {articleDate && (
-                  <button
-                    onClick={() => handleDateChange('')}
-                    className="text-xs text-gray-400 hover:text-gray-600"
-                  >
+                  <button onClick={() => handleDateChange('')} className="text-xs text-gray-400 hover:text-gray-600">
                     날짜 초기화
                   </button>
                 )}
@@ -301,9 +339,7 @@ export default function AdminPage() {
               {articles.map(a => (
                 <div key={a.id} className="rounded border p-3 space-y-1.5">
                   <div className="flex items-start gap-2">
-                    {a.urgent && (
-                      <span className="shrink-0 text-xs font-bold text-red-500 pt-0.5">긴급</span>
-                    )}
+                    {a.urgent && <span className="shrink-0 text-xs font-bold text-red-500 pt-0.5">긴급</span>}
                     <a
                       href={a.url}
                       target="_blank"
@@ -314,9 +350,7 @@ export default function AdminPage() {
                     </a>
                   </div>
 
-                  {a.summary && (
-                    <p className="text-xs text-gray-500 line-clamp-2">{a.summary}</p>
-                  )}
+                  {a.summary && <p className="text-xs text-gray-500 line-clamp-2">{a.summary}</p>}
 
                   <div className="flex items-center justify-between gap-2">
                     <div className="flex items-center gap-1.5 flex-wrap">
@@ -326,12 +360,8 @@ export default function AdminPage() {
                         </span>
                       )}
                       <span className="text-xs text-gray-400">{a.source}</span>
-                      {a.importance != null && (
-                        <span className="text-xs text-gray-400">중요도 {a.importance}/10</span>
-                      )}
-                      <span className="text-xs text-gray-300">
-                        {new Date(a.created_at).toLocaleString('ko-KR')}
-                      </span>
+                      {a.importance != null && <span className="text-xs text-gray-400">중요도 {a.importance}/10</span>}
+                      <span className="text-xs text-gray-300">{new Date(a.created_at).toLocaleString('ko-KR')}</span>
                     </div>
 
                     <div className="flex items-center gap-1.5 shrink-0">
@@ -352,6 +382,72 @@ export default function AdminPage() {
                         }`}
                       >
                         {a.status === 'active' ? '숨기기' : '복원'}
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* 매물 관리 */}
+          {tab === 'properties' && (
+            <div className="space-y-3">
+              <div className="flex flex-wrap items-center gap-2">
+                <div className="flex rounded-lg border overflow-hidden text-sm">
+                  {(['active', 'sold', 'cancelled'] as const).map(s => (
+                    <button
+                      key={s}
+                      onClick={() => handlePropertyStatusChange(s)}
+                      className={`px-3 py-1.5 ${propertyStatus === s ? 'bg-gray-900 text-white' : 'text-gray-600 hover:bg-gray-50'}`}
+                    >
+                      {s === 'active' ? '활성' : s === 'sold' ? '거래완료' : '취소'}
+                    </button>
+                  ))}
+                </div>
+                <span className="text-xs text-gray-400 ml-auto">총 {propertiesTotal}건</span>
+              </div>
+
+              {properties.length === 0 && <p className="text-sm text-gray-400">매물 없음</p>}
+
+              {properties.map(p => (
+                <div key={p.id} className="rounded border p-3 space-y-1.5">
+                  <div className="flex items-start justify-between gap-2">
+                    <div className="min-w-0">
+                      <p className="text-sm font-medium text-gray-800 truncate">
+                        {p.complexes?.name ?? p.title ?? '매물'}
+                      </p>
+                      <div className="flex items-center gap-2 mt-0.5 flex-wrap">
+                        {p.complexes?.sigungu && <span className="text-xs text-gray-400">{p.complexes.sigungu}</span>}
+                        <span className="text-xs px-1.5 py-0.5 rounded bg-gray-100 text-gray-600">
+                          {PROPERTY_TYPE_LABEL[p.property_type] ?? p.property_type}
+                        </span>
+                        {p.price && <span className="text-xs font-semibold text-gray-700">{formatPrice(p.price)}</span>}
+                        {p.property_scores && (
+                          <span className="text-xs text-indigo-600 font-medium">AI {p.property_scores.total_score}점</span>
+                        )}
+                        <span className="text-xs text-gray-300">{new Date(p.created_at).toLocaleDateString('ko-KR')}</span>
+                      </div>
+                    </div>
+
+                    <div className="flex items-center gap-1.5 shrink-0">
+                      <button
+                        onClick={() => rescoreProperty(p.id)}
+                        disabled={actionId === p.id}
+                        className="text-xs px-2 py-1 border rounded hover:bg-indigo-50 hover:text-indigo-600 hover:border-indigo-200 disabled:opacity-40"
+                      >
+                        {actionId === p.id ? '...' : 'AI 재스코어'}
+                      </button>
+                      <button
+                        onClick={() => togglePropertyStatus(p)}
+                        disabled={actionId === p.id}
+                        className={`text-xs px-2 py-1 border rounded disabled:opacity-40 ${
+                          p.status === 'active'
+                            ? 'hover:bg-red-50 hover:text-red-600 hover:border-red-200'
+                            : 'hover:bg-green-50 hover:text-green-600 hover:border-green-200'
+                        }`}
+                      >
+                        {p.status === 'active' ? '거래완료' : '활성화'}
                       </button>
                     </div>
                   </div>
