@@ -14,6 +14,21 @@ export const dynamic = 'force-dynamic'
 
 const TYPE_LABEL: Record<string, string> = { sale: '매매', auction: '경매', subscription: '청약' }
 
+interface FavoriteRow {
+  id: string
+  property_id: string
+  created_at: string
+  properties: {
+    id: string
+    title: string | null
+    price: number | null
+    property_type: string
+    status: string
+    complexes: { name: string; sigungu: string } | null
+    property_scores: { total_score: number; ai_summary: string | null } | null
+  } | null
+}
+
 export default async function FavoritesPage() {
   const supabase = await createSupabaseServerClient()
   const { data: { user } } = await supabase.auth.getUser()
@@ -25,7 +40,7 @@ export default async function FavoritesPage() {
     .eq('user_id', user.id)
     .order('created_at', { ascending: false })
 
-  const items = (favorites ?? []) as any[]
+  const items = (favorites ?? []) as unknown as FavoriteRow[]
 
   return (
     <main className="max-w-5xl mx-auto px-4 py-8 space-y-6">
@@ -48,7 +63,7 @@ export default async function FavoritesPage() {
         </div>
       ) : (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
-          {items.map((fav: any) => {
+          {items.map((fav) => {
             const p = fav.properties
             if (!p) return null
             const complex = p.complexes

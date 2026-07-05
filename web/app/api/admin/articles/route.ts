@@ -6,9 +6,11 @@ export const dynamic = 'force-dynamic'
 export async function GET(req: Request) {
   if (!await validateAdminRequest(req)) return unauthorized()
   const url = new URL((req as Request).url)
-  const limit = Math.min(Number(url.searchParams.get('limit') ?? 30), 100)
-  const offset = Number(url.searchParams.get('offset') ?? 0)
-  const status = url.searchParams.get('status') ?? 'active'
+  const limit = Math.min(Math.max(Number(url.searchParams.get('limit') ?? 30), 1), 100)
+  const offset = Math.max(Number(url.searchParams.get('offset') ?? 0), 0)
+  const ALLOWED_STATUS = ['active', 'hidden', 'deleted']
+  const rawStatus = url.searchParams.get('status') ?? 'active'
+  const status = ALLOWED_STATUS.includes(rawStatus) ? rawStatus : 'active'
   const date = url.searchParams.get('date')
 
   const db = createServerClient()

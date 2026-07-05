@@ -7,8 +7,6 @@ import {
   type AffordableScenario,
 } from '@/lib/koreanRealEstate'
 
-export const dynamic = 'force-dynamic'
-
 const CURRENT_YEAR = new Date().getFullYear()
 
 const REGIONS_PRESET = [

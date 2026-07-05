@@ -8,7 +8,13 @@ const VALID_SIGNALS = ['buy', 'wait', 'avoid'] as const
 
 export async function POST(req: NextRequest) {
   if (!validatePipelineKey(req)) return unauthorized()
-  const { run_id, content, signal, signal_reason, articles_count, urgent_count } = await req.json()
+  let body: Record<string, unknown>
+  try {
+    body = await req.json()
+  } catch {
+    return Response.json({ error: 'invalid JSON body' }, { status: 400 })
+  }
+  const { run_id, content, signal, signal_reason, articles_count, urgent_count } = body
   if (signal && !(VALID_SIGNALS as readonly string[]).includes(signal)) {
     return Response.json({ error: `signal must be one of: ${VALID_SIGNALS.join(', ')}` }, { status: 400 })
   }

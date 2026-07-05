@@ -33,8 +33,11 @@ export async function GET(req: NextRequest) {
   }
   if (urgent !== undefined) query = query.eq('urgent', urgent)
   if (keyword) {
-    // title 또는 summary에 키워드 포함
-    query = query.or(`title.ilike.%${keyword}%,summary.ilike.%${keyword}%`)
+    // PostgREST 구문 주입 방지: 특수문자 제거 후 ILIKE 적용
+    const safeKeyword = keyword.replace(/[(),%\\]/g, '')
+    if (safeKeyword) {
+      query = query.or(`title.ilike.%${safeKeyword}%,summary.ilike.%${safeKeyword}%`)
+    }
   }
 
   const { data, count, error } = await query

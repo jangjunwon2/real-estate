@@ -7,6 +7,7 @@ const LINKS = [
   { href: '/articles',   label: '뉴스' },
   { href: '/properties', label: '매물' },
   { href: '/favorites',  label: '즐겨찾기' },
+  { href: '/pricing',    label: '요금제' },
   { href: '/settings',   label: '내 정보' },
 ]
 

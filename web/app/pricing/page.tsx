@@ -102,14 +102,15 @@ export default function PricingPage() {
               </Link>
             ) : (
               <button
-                className={`py-2 rounded-lg text-sm font-medium transition-colors ${
+                disabled
+                className={`py-2 rounded-lg text-sm font-medium opacity-60 cursor-not-allowed ${
                   tier.name === 'Premium'
-                    ? 'bg-yellow-400 text-yellow-900 hover:bg-yellow-300'
-                    : 'bg-indigo-600 text-white hover:bg-indigo-700'
+                    ? 'bg-yellow-400 text-yellow-900'
+                    : 'bg-indigo-600 text-white'
                 }`}
-                onClick={() => alert('결제 기능은 Supabase Auth 연동 후 활성화됩니다.')}
+                title="출시 준비 중입니다"
               >
-                {tier.price} 시작
+                출시 예정
               </button>
             )}
           </div>

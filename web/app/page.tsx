@@ -51,12 +51,25 @@ async function getData() {
   }
 }
 
-export default async function HomePage() {
-  const { briefing, articles, properties, prefs } = await getData()
+export default async function HomePage({
+  searchParams,
+}: {
+  searchParams: Promise<{ reset?: string }>
+}) {
+  const [{ briefing, articles, properties, prefs }, { reset }] = await Promise.all([
+    getData(),
+    searchParams,
+  ])
 
   return (
     <main className="max-w-5xl mx-auto px-4 py-8 space-y-8">
       <h1 className="sr-only">부동산AI 홈</h1>
+
+      {reset === 'success' && (
+        <div className="rounded-xl border border-green-200 bg-green-50 px-5 py-3 text-sm text-green-800 font-medium">
+          ✓ 비밀번호가 성공적으로 변경되었습니다.
+        </div>
+      )}
 
       <UrgentBanner articles={articles as any} />
 

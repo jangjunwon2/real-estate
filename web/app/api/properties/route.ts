@@ -4,8 +4,8 @@ export const dynamic = 'force-dynamic'
 
 export async function GET(req: NextRequest) {
   const url = req.nextUrl
-  const limit = Math.min(Number(url.searchParams.get('limit') ?? 20), 100)
-  const offset = Number(url.searchParams.get('offset') ?? 0)
+  const limit = Math.min(Math.max(Number(url.searchParams.get('limit') ?? 20), 1), 100)
+  const offset = Math.max(Number(url.searchParams.get('offset') ?? 0), 0)
   const type = url.searchParams.get('type')
   const sort = url.searchParams.get('sort') ?? 'created_at'
   const sigungu = url.searchParams.get('sigungu')
@@ -30,12 +30,17 @@ export async function GET(req: NextRequest) {
     query = query.order('created_at', { ascending: false })
   }
 
-  if (type) query = query.eq('property_type', type)
+  const ALLOWED_TYPES = ['sale', 'auction', 'subscription']
+  if (type && ALLOWED_TYPES.includes(type)) query = query.eq('property_type', type)
   if (sigungu) query = query.eq('complexes.sigungu', sigungu)
-  if (price_min) query = query.gte('price', Number(price_min))
-  if (price_max) query = query.lte('price', Number(price_max))
-  if (area_min) query = query.gte('area_m2', Number(area_min))
-  if (area_max) query = query.lte('area_m2', Number(area_max))
+  const priceMinNum = price_min ? Number(price_min) : null
+  const priceMaxNum = price_max ? Number(price_max) : null
+  const areaMinNum = area_min ? Number(area_min) : null
+  const areaMaxNum = area_max ? Number(area_max) : null
+  if (priceMinNum !== null && !isNaN(priceMinNum)) query = query.gte('price', priceMinNum)
+  if (priceMaxNum !== null && !isNaN(priceMaxNum)) query = query.lte('price', priceMaxNum)
+  if (areaMinNum !== null && !isNaN(areaMinNum)) query = query.gte('area_sqm', areaMinNum)
+  if (areaMaxNum !== null && !isNaN(areaMaxNum)) query = query.lte('area_sqm', areaMaxNum)
 
   const { data, count, error } = await query
   if (error) return Response.json({ error: error.message }, { status: 500 })

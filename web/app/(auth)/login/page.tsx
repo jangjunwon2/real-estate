@@ -11,7 +11,9 @@ const URL_ERRORS: Record<string, string> = {
 function LoginForm() {
   const router = useRouter()
   const searchParams = useSearchParams()
-  const redirectTo = searchParams.get('redirect') ?? '/'
+  const rawRedirect = searchParams.get('redirect') ?? '/'
+  // 오픈 리다이렉트 방지: 내부 경로만 허용
+  const redirectTo = rawRedirect.startsWith('/') && !rawRedirect.startsWith('//') ? rawRedirect : '/'
   const urlError = searchParams.get('error')
 
   const [email, setEmail] = useState('')
