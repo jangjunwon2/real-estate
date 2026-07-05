@@ -15,7 +15,7 @@ export async function POST(req: NextRequest) {
     return Response.json({ error: 'invalid JSON body' }, { status: 400 })
   }
   const { run_id, content, signal, signal_reason, articles_count, urgent_count } = body
-  if (signal && !(VALID_SIGNALS as readonly string[]).includes(signal)) {
+  if (signal && !(VALID_SIGNALS as readonly string[]).includes(signal as string)) {
     return Response.json({ error: `signal must be one of: ${VALID_SIGNALS.join(', ')}` }, { status: 400 })
   }
   const db = createServerClient()
