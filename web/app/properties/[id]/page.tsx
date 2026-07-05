@@ -14,6 +14,8 @@ import SubscriptionScoreCard from '@/components/properties/SubscriptionScoreCard
 import LocationEnvironmentCard from '@/components/properties/LocationEnvironmentCard'
 import { calcLoanProducts, type UserFinance } from '@/lib/koreanRealEstate'
 import FavoriteButton from '@/components/FavoriteButton'
+import PriceComparisonSection, { type SameComplexProp, type NearbyProp } from '@/components/properties/PriceComparisonSection'
+import AIPriceForecastCard from '@/components/properties/AIPriceForecastCard'
 
 export const dynamic = 'force-dynamic'
 
@@ -44,6 +46,47 @@ async function getProperty(id: string) {
     .eq('id', id)
     .single()
   return data as any | null
+}
+
+async function getNearbyData(
+  complexId: string,
+  sigungu: string | null,
+  propertyId: string,
+  price: number,
+): Promise<{ sameComplex: SameComplexProp[]; nearbyProps: NearbyProp[] }> {
+  const db = createServerClient()
+  const sameComplexQ = db.from('properties')
+    .select('id, price, area_sqm, floor, property_type')
+    .eq('complex_id', complexId)
+    .neq('id', propertyId)
+    .not('price', 'is', null)
+    .order('area_sqm', { ascending: true })
+    .limit(20)
+
+  if (!sigungu) {
+    const { data } = await sameComplexQ
+    return { sameComplex: (data ?? []) as SameComplexProp[], nearbyProps: [] }
+  }
+
+  const [sameResult, sigunguResult] = await Promise.all([
+    sameComplexQ,
+    db.from('complexes').select('id').eq('sigungu', sigungu).neq('id', complexId).limit(50),
+  ])
+
+  const sigunguIds = ((sigunguResult.data ?? []) as { id: string }[]).map(c => c.id)
+  let nearbyProps: NearbyProp[] = []
+  if (sigunguIds.length > 0) {
+    const { data } = await db.from('properties')
+      .select('id, price, area_sqm, floor, property_type, complexes(name, sigungu)')
+      .in('complex_id', sigunguIds)
+      .gte('price', Math.floor(price * 0.7))
+      .lte('price', Math.ceil(price * 1.3))
+      .not('price', 'is', null)
+      .order('price', { ascending: true })
+      .limit(6)
+    nearbyProps = (data ?? []) as unknown as NearbyProp[]
+  }
+  return { sameComplex: (sameResult.data ?? []) as SameComplexProp[], nearbyProps }
 }
 
 async function getPrefs(userId: string | null) {
@@ -97,6 +140,13 @@ export default async function PropertyDetailPage({
   const isFavorited = !!favData
   const favoriteId: string | null = favData?.id ?? null
   if (!property) notFound()
+
+  const complexId = property.complexes?.id ?? null
+  const sigunguForNearby = property.complexes?.sigungu ?? null
+  const priceForNearby = property.price ?? 0
+  const nearbyData = complexId && priceForNearby > 0
+    ? await getNearbyData(complexId, sigunguForNearby, id, priceForNearby)
+    : { sameComplex: [], nearbyProps: [] }
 
   const complex = property.complexes
   const score = property.property_scores
@@ -330,6 +380,23 @@ export default async function PropertyDetailPage({
             </div>
           )}
         </section>
+      )}
+
+      {/* 가격 비교 분석 */}
+      <PriceComparisonSection
+        currentId={id}
+        currentPrice={property.price ?? null}
+        currentSqm={property.area_sqm ?? null}
+        currentFloor={property.floor ?? null}
+        sameComplex={nearbyData.sameComplex}
+        nearbyProps={nearbyData.nearbyProps}
+        sigungu={sigungu}
+        complexName={complex?.name ?? null}
+      />
+
+      {/* AI 시세 전망 */}
+      {property.price && (
+        <AIPriceForecastCard propertyId={id} currentPrice={property.price} />
       )}
 
       {/* 위치 + 주변 환경 통합 섹션 */}
