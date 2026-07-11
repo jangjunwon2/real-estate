@@ -117,7 +117,11 @@ export default function SettingsPage() {
       fetch('/api/notifications/settings').then(r => r.ok ? r.json() : Promise.reject()),
     ])
       .then(([data, notifData]) => {
-        setPrefs({ ...DEFAULT_PREFS, ...data })
+        const merged = { ...DEFAULT_PREFS, ...data }
+        // 신혼부부 여부와 매수 형태가 어긋난 기존 데이터 보정 (예: buyer_type 필드 도입 이전에 저장된 값)
+        if (merged.is_newlywed && merged.buyer_type !== 'couple') merged.buyer_type = 'couple'
+        if (!merged.is_newlywed && merged.buyer_type === 'couple') merged.buyer_type = 'solo'
+        setPrefs(merged)
         setNotif({ notify_email: notifData.notify_email ?? true, notify_kakao: notifData.notify_kakao ?? false })
         setLoading(false)
       })
@@ -253,7 +257,12 @@ export default function SettingsPage() {
             { key: 'is_newlywed' as const, icon: '💍', label: '신혼부부', desc: '혼인 7년 이내' },
             { key: 'is_first_buyer' as const, icon: '🏠', label: '생애최초', desc: '현재 주택 미보유' },
           ] as const).map(({ key, icon, label, desc }) => (
-            <button key={key} onClick={() => setPrefs(p => ({ ...p, [key]: !p[key] }))}
+            <button key={key} onClick={() => setPrefs(p => {
+              const next = !p[key]
+              return key === 'is_newlywed'
+                ? { ...p, is_newlywed: next, buyer_type: next ? 'couple' : 'solo' }
+                : { ...p, [key]: next }
+            })}
               className={`flex items-center gap-2.5 px-4 py-3 rounded-xl border text-sm font-medium transition-colors text-left ${
                 prefs[key] ? 'bg-indigo-600 text-white border-indigo-600' : 'border-gray-200 text-gray-600 bg-white hover:border-gray-400'
               }`}>
@@ -404,7 +413,7 @@ export default function SettingsPage() {
               />
               <div className="col-span-2 flex items-center justify-between rounded-lg bg-gray-50 border border-gray-100 px-3 py-2">
                 <span className="text-xs text-gray-500">부부합산 연소득 (자동 계산)</span>
-                <span className="text-sm font-semibold text-gray-900">{prefs.monthly_income.toLocaleString()}만원</span>
+                <span className="text-sm font-semibold text-gray-900">{priceLabel(prefs.monthly_income)}원</span>
               </div>
             </>
           ) : (
@@ -437,7 +446,7 @@ export default function SettingsPage() {
           {selfFunds > 0 && (
             <div className="flex justify-between items-center border-t border-gray-200 pt-3 text-sm">
               <span className="text-gray-600">자기자본 합계</span>
-              <span className="font-bold text-gray-900 text-base">{selfFunds.toLocaleString()}만원</span>
+              <span className="font-bold text-gray-900 text-base">{priceLabel(selfFunds)}원</span>
             </div>
           )}
         </div>
@@ -471,7 +480,7 @@ export default function SettingsPage() {
           <div>
             <h2 className="font-semibold text-gray-800">구매 가능 금액</h2>
             <p className="text-xs text-gray-500 mt-0.5">
-              자기자본 <strong>{selfFunds.toLocaleString()}만원</strong> 기준 · 대출 상품별 최대 구매가
+              자기자본 <strong>{priceLabel(selfFunds)}원</strong> 기준 · 대출 상품별 최대 구매가
             </p>
           </div>
 

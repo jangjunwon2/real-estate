@@ -165,7 +165,7 @@ export default async function PropertiesPage({
             )}
             {(prefs.budget_min || prefs.budget_max) && (
               <span className="text-[11px] bg-gray-100 text-gray-600 px-2.5 py-0.5 rounded-full font-medium">
-                예산 {prefs.budget_min ? (prefs.budget_min as number).toLocaleString() : '0'}~{prefs.budget_max ? (prefs.budget_max as number).toLocaleString() : '∞'}만원
+                예산 {prefs.budget_min ? formatPrice(prefs.budget_min as number) : '0'}~{prefs.budget_max ? formatPrice(prefs.budget_max as number) : '∞'}
               </span>
             )}
           </div>

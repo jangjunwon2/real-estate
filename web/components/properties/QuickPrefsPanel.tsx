@@ -1,6 +1,7 @@
 'use client'
 import { useState } from 'react'
 import { useRouter } from 'next/navigation'
+import { formatPrice } from '@/lib/formatPrice'
 
 const REGIONS_PRESET = ['서울', '경기 성남', '경기 수원', '경기 용인', '경기 화성', '인천']
 
@@ -94,8 +95,7 @@ export default function QuickPrefsPanel() {
       {/* 예산 */}
       <div className="space-y-2">
         <p className="text-xs font-medium text-gray-600 uppercase tracking-wide">
-          최대 예산: <span className="text-gray-900 font-semibold">{budgetMax.toLocaleString()}만원</span>
-          {budgetMax >= 10000 && <span className="text-gray-500"> ({(budgetMax / 10000).toFixed(1)}억)</span>}
+          최대 예산: <span className="text-gray-900 font-semibold">{formatPrice(budgetMax)}</span>
         </p>
         <input
           type="range"

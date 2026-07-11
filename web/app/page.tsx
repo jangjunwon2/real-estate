@@ -5,6 +5,7 @@ import ArticleList from '@/components/ArticleList'
 import PropertyGrid from '@/components/PropertyGrid'
 import UrgentBanner from '@/components/articles/UrgentBanner'
 import { TITLE_KEYWORD_FILTER } from '@/lib/articleFilter'
+import { formatPrice } from '@/lib/formatPrice'
 import Link from 'next/link'
 
 export const dynamic = 'force-dynamic'
@@ -95,7 +96,7 @@ export default async function HomePage({
           <p className="text-sm text-gray-600">
             {(prefs as any).is_newlywed && <span className="mr-1">💍신혼</span>}
             {(prefs as any).is_first_buyer && <span className="mr-1">🏠생애최초</span>}
-            관심 지역: {(((prefs as any).regions as string[]) ?? []).join(', ') || '미설정'} · 예산 {((prefs as any).budget_max ?? 0).toLocaleString()}만원 이하
+            관심 지역: {(((prefs as any).regions as string[]) ?? []).join(', ') || '미설정'} · 예산 {formatPrice((prefs as any).budget_max ?? 0)} 이하
           </p>
           <Link href="/settings" className="text-xs text-indigo-600 hover:underline shrink-0">수정</Link>
         </div>

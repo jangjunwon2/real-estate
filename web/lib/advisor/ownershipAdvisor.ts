@@ -1,5 +1,6 @@
 import { compareOwnershipPropertyTax, type OwnershipTaxComparison } from './propertyTax'
 import type { AdvisorProfile, RecommendationCard, ComparisonTable } from './types'
+import { formatPrice } from '../formatPrice'
 
 export interface OwnershipRecommendation {
   card: RecommendationCard
@@ -16,7 +17,7 @@ export function recommendOwnership(profile: AdvisorProfile, price: number): Owne
 
   reasons.push(
     propertyTax.recommended === 'jointIndividual'
-      ? `공동명의(인별과세) 시 종부세 공제가 1인당 9억씩 총 18억으로 단독명의(12억)보다 유리해, 연 ${propertyTax.savings.toLocaleString()}만원 절약 추정`
+      ? `공동명의(인별과세) 시 종부세 공제가 1인당 9억씩 총 18억으로 단독명의(12억)보다 유리해, 연 ${formatPrice(propertyTax.savings)} 절약 추정`
       : '두 방식의 종부세 차이가 크지 않아, 명의보다 대출 심사·향후 양도 계획을 우선 고려하세요'
   )
   if (profile.selfHomeStatus !== 'none' || profile.spouseHomeStatus !== 'none') {
@@ -39,8 +40,8 @@ export function recommendOwnership(profile: AdvisorProfile, price: number): Owne
         {
           label: '예상 종부세 (연)',
           values: {
-            sole: `${propertyTax.soleOrSpecialOwnership.propertyTax.toLocaleString()}만원`,
-            joint: `${propertyTax.jointIndividual.propertyTax.toLocaleString()}만원`,
+            sole: formatPrice(propertyTax.soleOrSpecialOwnership.propertyTax),
+            joint: formatPrice(propertyTax.jointIndividual.propertyTax),
           },
         },
       ],
