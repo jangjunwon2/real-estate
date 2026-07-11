@@ -7,6 +7,7 @@ import {
   type AffordableScenario,
 } from '@/lib/koreanRealEstate'
 import NumInput from '@/components/settings/NumInput'
+import AdvisorProfileSection, { type AdvisorProfileFields } from '@/components/settings/AdvisorProfileSection'
 
 const CURRENT_YEAR = new Date().getFullYear()
 
@@ -50,6 +51,12 @@ interface Prefs {
   income_mode: IncomeMode
   income_self: number
   income_spouse: number
+  buyer_type: 'solo' | 'couple'
+  marriage_status: 'registered' | 'planned' | 'undetermined' | null
+  self_home_status: 'none' | 'one' | 'multiple'
+  spouse_home_status: 'none' | 'one' | 'multiple' | null
+  household_head: boolean
+  subscription_account_years: number
 }
 
 const DEFAULT_PREFS: Prefs = {
@@ -72,6 +79,12 @@ const DEFAULT_PREFS: Prefs = {
   income_mode: 'combined',
   income_self: 0,
   income_spouse: 0,
+  buyer_type: 'solo',
+  marriage_status: null,
+  self_home_status: 'none',
+  spouse_home_status: null,
+  household_head: true,
+  subscription_account_years: 0,
 }
 
 function priceLabel(p: number): string {
@@ -130,6 +143,13 @@ export default function SettingsPage() {
   }
 
   const set = <K extends keyof Prefs>(k: K) => (v: Prefs[K]) =>
+    setPrefs(p => ({ ...p, [k]: v }))
+
+  // AdvisorProfileSection's onChange is generic over AdvisorProfileFields (a subset of Prefs
+  // with identical field names/types). It isn't structurally assignable from `set` above because
+  // TS can't prove indexed-access equality across two independently-generic function signatures,
+  // so this dedicated adapter implements the same update directly against setPrefs.
+  const setAdvisorField = <K extends keyof AdvisorProfileFields>(k: K) => (v: AdvisorProfileFields[K]) =>
     setPrefs(p => ({ ...p, [k]: v }))
 
   const setIncomeMode = (mode: IncomeMode) =>
@@ -333,6 +353,9 @@ export default function SettingsPage() {
           </div>
         )}
       </section>
+
+      {/* ══ 1.5. 구매 전략 추천용 정보 ═══════════════════════════════════ */}
+      <AdvisorProfileSection prefs={prefs} onChange={setAdvisorField} />
 
       {/* ══ 2. 재무 정보 ════════════════════════════════════════════════ */}
       <section className="space-y-4">

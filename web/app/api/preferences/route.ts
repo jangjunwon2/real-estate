@@ -25,6 +25,12 @@ const DEFAULT_PREFS = {
   income_mode: 'combined' as 'combined' | 'individual',
   income_self: 0,
   income_spouse: 0,
+  buyer_type: 'solo' as 'solo' | 'couple',
+  marriage_status: null as 'registered' | 'planned' | 'undetermined' | null,
+  self_home_status: 'none' as 'none' | 'one' | 'multiple',
+  spouse_home_status: null as 'none' | 'one' | 'multiple' | null,
+  household_head: true,
+  subscription_account_years: 0,
 }
 
 async function getUser() {
@@ -88,6 +94,12 @@ export async function POST(req: NextRequest) {
     income_mode: has('income_mode') ? body.income_mode : base.income_mode,
     income_self: has('income_self') ? Number(body.income_self) || 0 : base.income_self,
     income_spouse: has('income_spouse') ? Number(body.income_spouse) || 0 : base.income_spouse,
+    buyer_type: has('buyer_type') ? body.buyer_type : base.buyer_type,
+    marriage_status: has('marriage_status') ? body.marriage_status : base.marriage_status,
+    self_home_status: has('self_home_status') ? body.self_home_status : base.self_home_status,
+    spouse_home_status: has('spouse_home_status') ? body.spouse_home_status : base.spouse_home_status,
+    household_head: has('household_head') ? Boolean(body.household_head) : base.household_head,
+    subscription_account_years: has('subscription_account_years') ? Number(body.subscription_account_years) || 0 : base.subscription_account_years,
     updated_at: new Date().toISOString(),
   }, { onConflict: 'user_id' })
 
