@@ -105,6 +105,16 @@ export function detectZoneType(sigungu: string | null | undefined): ZoneType {
   return 'none'
 }
 
+// 관심 지역이 여러 곳일 때, 대출 한도를 과대추정하지 않도록 가장 엄격한(규제가 강한) 지역 기준을 사용
+export function detectStrictestZone(regions: (string | null | undefined)[]): ZoneType {
+  const priority: ZoneType[] = ['tohe', 'overheat', 'regulated', 'none']
+  const zones = regions.map(detectZoneType)
+  for (const z of priority) {
+    if (zones.includes(z)) return z
+  }
+  return 'none'
+}
+
 // ─── DSR 역산 ────────────────────────────────────────────────────────────
 function dsrFactor(annualRatePct: number): number {
   const r = annualRatePct / 100 / 12
@@ -181,7 +191,33 @@ export interface AffordableScenario {
   blockedReasons: string[]
 }
 
-export function calcAffordableScenarios(selfFunds: number, fin: UserFinance): AffordableScenario[] {
+// 일반 주담대는 LTV·절대한도가 매매가 구간에 따라 달라져(9억/15억/25억 경계) 목표가를
+// 먼저 알아야 LTV를 정할 수 있는 순환 구조다. 고정점 반복으로 수렴시킨다 (계단식 함수라
+// 보통 2~3회 안에 수렴).
+function calcGeneralAffordablePrice(
+  selfFunds: number,
+  dsrMax: number,
+  zone: ZoneType,
+  isFirstBuyer: boolean,
+): { maxPrice: number; ltvUsed: number; capUsed: number } {
+  let price = selfFunds + dsrMax
+  let ltv = generalMortgageLtv(zone, price, isFirstBuyer)
+  let cap = absoluteLoanCap(price, zone)
+  for (let i = 0; i < 5; i++) {
+    const nextPrice = calcMaxAffordablePrice(selfFunds, ltv, cap, dsrMax)
+    const nextLtv = generalMortgageLtv(zone, nextPrice, isFirstBuyer)
+    const nextCap = absoluteLoanCap(nextPrice, zone)
+    if (nextPrice === price && nextLtv === ltv && nextCap === cap) break
+    price = nextPrice; ltv = nextLtv; cap = nextCap
+  }
+  return { maxPrice: price, ltvUsed: ltv, capUsed: cap }
+}
+
+export function calcAffordableScenarios(
+  selfFunds: number,
+  fin: UserFinance,
+  zone: ZoneType = 'none',
+): AffordableScenario[] {
   const d1 = LOAN_PRODUCTS.didimdolSpecial
   const d2 = LOAN_PRODUCTS.didimdolGeneral
   const nb = LOAN_PRODUCTS.newbornSpecial
@@ -239,26 +275,46 @@ export function calcAffordableScenarios(selfFunds: number, fin: UserFinance): Af
         return r
       },
     },
-    {
-      id: 'general',
-      name: '일반 주담대', subName: '시중은행', repRate: 5.0, rateRange: '연 4~6%',
-      ltvRate: 0.7, loanCap: 999999, priceCap: undefined as number | undefined,
-      check: () => fin.income === 0 ? ['소득 정보 미입력'] : [],
-    },
   ]
 
-  return specs.map(s => {
+  const results: AffordableScenario[] = specs.map(s => {
     const blockedReasons = s.check()
     const eligible = blockedReasons.length === 0
     if (!eligible || fin.income === 0) {
       return { id: s.id, name: s.name, subName: s.subName, maxPrice: 0, loanAmount: 0, monthlyPayment: 0, repRate: s.repRate, rateRange: s.rateRange, eligible, blockedReasons }
     }
-    const dsrMax = dsrMaxLoan(fin.income, fin.existingLoanPayment, s.repRate)
+    const dsrMax = dsrMaxLoan(fin.income, fin.existingLoanPayment, s.repRate, zone)
     const maxPrice = calcMaxAffordablePrice(selfFunds, s.ltvRate, s.loanCap, dsrMax, s.priceCap)
     const loanAmount = Math.max(0, maxPrice - selfFunds)
     const monthly = calcMonthlyPayment(loanAmount, s.repRate)
     return { id: s.id, name: s.name, subName: s.subName, maxPrice, loanAmount, monthlyPayment: monthly, repRate: s.repRate, rateRange: s.rateRange, eligible, blockedReasons }
   })
+
+  // 일반 주담대 — 관심 지역의 규제 여부에 따라 LTV·절대한도·스트레스DSR이 모두 달라진다
+  const genReasons = fin.income === 0 ? ['소득 정보 미입력'] : []
+  const genEligible = genReasons.length === 0
+  const zoneLabel = zone === 'tohe' ? '토허제·투기과열지구' : zone === 'overheat' ? '투기과열지구' : zone === 'regulated' ? '조정대상지역' : ''
+  if (!genEligible) {
+    results.push({
+      id: 'general', name: '일반 주담대', subName: '시중은행',
+      maxPrice: 0, loanAmount: 0, monthlyPayment: 0, repRate: 5.0, rateRange: '연 4~6%',
+      eligible: false, blockedReasons: genReasons,
+    })
+  } else {
+    const dsrGeneral = dsrMaxLoan(fin.income, fin.existingLoanPayment, 5.0, zone)
+    const { maxPrice, ltvUsed } = calcGeneralAffordablePrice(selfFunds, dsrGeneral, zone, fin.isFirstBuyer)
+    const loanAmount = Math.max(0, maxPrice - selfFunds)
+    const monthly = calcMonthlyPayment(loanAmount, 5.0)
+    results.push({
+      id: 'general',
+      name: '일반 주담대',
+      subName: zoneLabel ? `시중은행 · ${zoneLabel} LTV ${Math.round(ltvUsed * 100)}%` : '시중은행',
+      maxPrice, loanAmount, monthlyPayment: monthly, repRate: 5.0, rateRange: '연 4~6%',
+      eligible: true, blockedReasons: [],
+    })
+  }
+
+  return results
 }
 
 // ─── 무주택 기간 (청약 가점용) ────────────────────────────────────────────

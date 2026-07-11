@@ -6,6 +6,7 @@ import {
   calcAcquisitionTax,
   calcBrokerFee,
   detectZoneType,
+  detectStrictestZone,
   calcAffordableScenarios,
   calcLoanProducts,
   type UserFinance,
@@ -197,6 +198,44 @@ describe('calcAffordableScenarios', () => {
         expect(s.monthlyPayment).toBeGreaterThan(0)
       }
     }
+  })
+
+  it('general mortgage max price is lower in a regulated zone than unregulated (non-first-buyer LTV differs)', () => {
+    const fin: UserFinance = { ...baseFinance, isFirstBuyer: false, income: 15000 }
+    const none = calcAffordableScenarios(30000, fin, 'none').find(s => s.id === 'general')
+    const tohe = calcAffordableScenarios(30000, fin, 'tohe').find(s => s.id === 'general')
+    expect(none?.eligible).toBe(true)
+    expect(tohe?.eligible).toBe(true)
+    expect(tohe!.maxPrice).toBeLessThan(none!.maxPrice)
+  })
+
+  it('general mortgage subName reflects the regulated zone', () => {
+    const fin: UserFinance = { ...baseFinance, isFirstBuyer: false }
+    const tohe = calcAffordableScenarios(30000, fin, 'tohe').find(s => s.id === 'general')
+    expect(tohe?.subName).toContain('토허제')
+  })
+
+  it('defaults to unregulated zone when none is passed (backward compatible)', () => {
+    const scenarios = calcAffordableScenarios(20000, baseFinance)
+    const general = scenarios.find(s => s.id === 'general')
+    expect(general?.subName).toBe('시중은행')
+  })
+})
+
+// ─── detectStrictestZone ────────────────────────────────────────────────────
+
+describe('detectStrictestZone', () => {
+  it('picks tohe when any region is in Seoul, regardless of order', () => {
+    expect(detectStrictestZone(['경기 화성', '서울 강남구'])).toBe('tohe')
+    expect(detectStrictestZone(['서울 강남구', '경기 화성'])).toBe('tohe')
+  })
+
+  it('returns none when no region is regulated', () => {
+    expect(detectStrictestZone(['부산', '대전'])).toBe('none')
+  })
+
+  it('returns none for an empty list', () => {
+    expect(detectStrictestZone([])).toBe('none')
   })
 })
 

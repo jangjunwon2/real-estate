@@ -3,6 +3,7 @@ import { useEffect, useState, useMemo } from 'react'
 import {
   calcAffordableScenarios,
   calcNoHomeYears,
+  detectStrictestZone,
   type UserFinance,
   type AffordableScenario,
 } from '@/lib/koreanRealEstate'
@@ -203,11 +204,13 @@ export default function SettingsPage() {
        prefs.existing_loan_payment, prefs.is_newlywed, prefs.is_first_buyer,
        prefs.no_home_years, prefs.num_children])
 
+  const zone = useMemo(() => detectStrictestZone(prefs.regions), [prefs.regions])
+
   const affordableScenarios = useMemo<AffordableScenario[]>(() => {
     if (selfFunds === 0 && prefs.monthly_income === 0) return []
     if (selfFunds === 0) return []   // 자기자본 없으면 LTV 계산 불가
-    return calcAffordableScenarios(selfFunds, finance)
-  }, [selfFunds, finance, prefs.monthly_income])
+    return calcAffordableScenarios(selfFunds, finance, zone)
+  }, [selfFunds, finance, prefs.monthly_income, zone])
 
   const bestEligible = affordableScenarios.find(s => s.eligible && s.maxPrice > 0)
 
@@ -479,6 +482,7 @@ export default function SettingsPage() {
             <h2 className="font-semibold text-gray-800">구매 가능 금액</h2>
             <p className="text-xs text-gray-500 mt-0.5">
               자기자본 <strong>{priceLabel(selfFunds)}원</strong> 기준 · 대출 상품별 최대 구매가
+              {zone !== 'none' && ' · 관심 지역 중 규제가 가장 강한 지역 기준으로 계산됨'}
             </p>
           </div>
 
