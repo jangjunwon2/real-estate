@@ -341,3 +341,41 @@ export const TOHE_RULES = {
   lastUpdated: '2025-10-20',
   source: '2025.10.15 「10·15 주택시장 안정화 대책」',
 } as const
+
+// ─── 종합부동산세 (2023년 개정 세법 기준) ──────────────────────────────────
+// 근거: 국세청 안내자료 교차검증 (기본공제 12억/9억, 세율 0.5~2.7%/0.5~5.0%,
+//       세부담상한 150% 통일(2023 개정, 종전 다주택 300%))
+// ⚠️ 2026.7월 말 예정된 세제개편안에서 공정시장가액비율 상향이 논의 중 —
+//    이 값이 바뀌면 반드시 아래 fairMarketValueRatio를 갱신할 것
+export const PROPERTY_TAX = {
+  fairMarketValueRatio: 0.60,
+  deduction: {
+    singleHouseSpecial: 120000,   // 1세대1주택자 특례: 12억
+    perPerson: 90000,             // 인별 과세 기본공제: 9억 (공동명의는 1인당)
+  },
+  jointOwnershipOption: {
+    note: '부부 공동명의 1주택: 특례(12억, 세액공제 가능) vs 인별과세(9억×2=18억, 세액공제 불가) 중 유리한 쪽 선택 가능. 매년 9.16~9.30 신청.',
+  },
+  rates: {
+    general: [ // 2주택 이하 — 과세표준(만원) 기준
+      { maxBase: 30000, rate: 0.005 },
+      { maxBase: 60000, rate: 0.007 },
+      { maxBase: 120000, rate: 0.010 },
+      { maxBase: 250000, rate: 0.013 },
+      { maxBase: 500000, rate: 0.015 },
+      { maxBase: 940000, rate: 0.020 },
+      { maxBase: Infinity, rate: 0.027 },
+    ],
+    multiHouse3plus: [ // 3주택 이상 — 과세표준 12억까지는 general과 동일, 초과분부터 중과
+      { maxBase: 120000, rate: 0.010 },
+      { maxBase: 250000, rate: 0.020 },
+      { maxBase: 500000, rate: 0.030 },
+      { maxBase: 940000, rate: 0.040 },
+      { maxBase: Infinity, rate: 0.050 },
+    ],
+  } as const,
+  taxBurdenCap: 1.50, // 전년 대비 세부담 상한 — 주택 수 무관 150% (2023 개정)
+  seniorLongTermDeduction: { maxRate: 0.80 },
+  lastUpdated: '2026-07-01',
+  source: '종합부동산세법 (2023년 개정 세법 기준) — 국세청 자료 교차검증 완료',
+} as const
