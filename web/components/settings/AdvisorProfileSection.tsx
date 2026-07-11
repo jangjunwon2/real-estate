@@ -100,7 +100,7 @@ export default function AdvisorProfileSection({ prefs, onChange }: AdvisorProfil
             prefs.household_head ? 'bg-indigo-600 text-white border-indigo-600' : 'border-gray-200 text-gray-600 hover:border-gray-400'
           }`}>
           <p className="font-medium">{prefs.household_head ? '세대주 ✓' : '세대주 아님'}</p>
-          <p className={`text-[11px] font-normal ${prefs.household_head ? 'text-indigo-200' : 'text-gray-400'}`}>청약 가점 계산에 반영</p>
+          <p className={`text-[11px] font-normal ${prefs.household_head ? 'text-indigo-200' : 'text-gray-400'}`}>무주택 세대주 전용 특별공급 자격에 영향</p>
         </button>
         <NumInput
           label="청약통장 가입기간"
