@@ -8,9 +8,11 @@ CREATE UNIQUE INDEX IF NOT EXISTS user_preferences_user_id_idx ON user_preferenc
 ALTER TABLE user_preferences ENABLE ROW LEVEL SECURITY;
 
 -- 사용자 자신의 설정만 읽기/쓰기
-CREATE POLICY IF NOT EXISTS "user_preferences_self" ON user_preferences
+DROP POLICY IF EXISTS "user_preferences_self" ON user_preferences;
+CREATE POLICY "user_preferences_self" ON user_preferences
   FOR ALL USING (auth.uid() = user_id);
 
 -- 서비스 롤 전체 접근
-CREATE POLICY IF NOT EXISTS "user_preferences_service" ON user_preferences
+DROP POLICY IF EXISTS "user_preferences_service" ON user_preferences;
+CREATE POLICY "user_preferences_service" ON user_preferences
   FOR ALL USING (auth.role() = 'service_role');
