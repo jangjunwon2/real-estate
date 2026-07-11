@@ -49,7 +49,18 @@ interface Property {
   property_scores: { total_score: number } | null
 }
 
-type Tab = 'runs' | 'briefings' | 'articles' | 'properties'
+interface PolicyProposal {
+  id: string
+  article_url: string | null
+  article_title: string
+  regulation_path: string
+  ai_summary: string
+  proposed_diff: string
+  status: string
+  detected_at: string
+}
+
+type Tab = 'runs' | 'briefings' | 'articles' | 'properties' | 'policy'
 
 const STATUS_COLOR: Record<string, string> = {
   success: 'text-green-600',
@@ -92,6 +103,7 @@ export default function AdminPage() {
   const [properties, setProperties] = useState<Property[]>([])
   const [propertiesTotal, setPropertiesTotal] = useState(0)
   const [propertyStatus, setPropertyStatus] = useState<'active' | 'sold' | 'cancelled'>('active')
+  const [proposals, setProposals] = useState<PolicyProposal[]>([])
   const [loading, setLoading] = useState(false)
   const [actionId, setActionId] = useState<string | null>(null)
   const [error, setError] = useState('')
@@ -116,6 +128,13 @@ export default function AdminPage() {
     setPropertiesTotal(json.total ?? 0)
   }
 
+  const fetchProposals = async () => {
+    const res = await fetch('/api/admin/policy-proposals?status=pending')
+    if (!res.ok) return
+    const json = await res.json()
+    setProposals(json.proposals ?? [])
+  }
+
   const fetchAll = async () => {
     setError('')
     const [statsRes, runsRes, briefRes] = await Promise.all([
@@ -130,7 +149,7 @@ export default function AdminPage() {
     setStats(await statsRes.json())
     setRuns((await runsRes.json()).runs ?? [])
     setBriefings((await briefRes.json()).briefings ?? [])
-    await Promise.all([fetchArticles(), fetchProperties()])
+    await Promise.all([fetchArticles(), fetchProperties(), fetchProposals()])
   }
 
   useEffect(() => { fetchAll() }, [])
@@ -180,6 +199,17 @@ export default function AdminPage() {
     })
     setActionId(null)
     await fetchProperties()
+  }
+
+  const reviewProposal = async (id: string, status: 'approved' | 'rejected') => {
+    setActionId(id)
+    await fetch(`/api/admin/policy-proposals/${id}`, {
+      method: 'PATCH',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({ status }),
+    })
+    setActionId(null)
+    await fetchProposals()
   }
 
   const handleStatusChange = async (s: 'active' | 'hidden') => {
@@ -251,7 +281,7 @@ export default function AdminPage() {
 
           {/* 탭 */}
           <div className="border-b flex gap-4">
-            {(['runs', 'briefings', 'articles', 'properties'] as const).map(t => (
+            {(['runs', 'briefings', 'articles', 'properties', 'policy'] as const).map(t => (
               <button
                 key={t}
                 onClick={() => setTab(t)}
@@ -259,7 +289,7 @@ export default function AdminPage() {
                   tab === t ? 'border-gray-900 text-gray-900' : 'border-transparent text-gray-400 hover:text-gray-600'
                 }`}
               >
-                {t === 'runs' ? '실행 이력' : t === 'briefings' ? '브리핑 이력' : t === 'articles' ? '기사 관리' : '매물 관리'}
+                {t === 'runs' ? '실행 이력' : t === 'briefings' ? '브리핑 이력' : t === 'articles' ? '기사 관리' : t === 'properties' ? '매물 관리' : '정책 변경 제안'}
               </button>
             ))}
           </div>
@@ -453,6 +483,46 @@ export default function AdminPage() {
                         {p.status === 'active' ? '거래완료' : '활성화'}
                       </button>
                     </div>
+                  </div>
+                </div>
+              ))}
+            </div>
+          )}
+
+          {/* 정책 변경 제안 */}
+          {tab === 'policy' && (
+            <div className="space-y-3">
+              {proposals.length === 0 && <p className="text-sm text-gray-400">대기 중인 제안 없음</p>}
+              {proposals.map(p => (
+                <div key={p.id} className="rounded border p-4 space-y-2">
+                  <div className="flex items-start justify-between gap-4">
+                    <div>
+                      <p className="text-sm font-medium text-gray-800">{p.regulation_path}</p>
+                      {p.article_url ? (
+                        <a href={p.article_url} target="_blank" rel="noreferrer" className="text-xs text-indigo-600 hover:underline">
+                          {p.article_title}
+                        </a>
+                      ) : (
+                        <p className="text-xs text-gray-400">{p.article_title}</p>
+                      )}
+                    </div>
+                    <span className="text-xs text-gray-400 shrink-0">
+                      {new Date(p.detected_at).toLocaleString('ko-KR')}
+                    </span>
+                  </div>
+                  <p className="text-sm text-gray-600">{p.ai_summary}</p>
+                  <pre className="text-xs bg-gray-50 rounded p-2 overflow-x-auto whitespace-pre-wrap">{p.proposed_diff}</pre>
+                  <div className="flex gap-2">
+                    <button
+                      onClick={() => reviewProposal(p.id, 'approved')}
+                      disabled={actionId === p.id}
+                      className="px-3 py-1 rounded bg-green-600 text-white text-xs disabled:opacity-50"
+                    >승인</button>
+                    <button
+                      onClick={() => reviewProposal(p.id, 'rejected')}
+                      disabled={actionId === p.id}
+                      className="px-3 py-1 rounded bg-gray-200 text-gray-700 text-xs disabled:opacity-50"
+                    >거절</button>
                   </div>
                 </div>
               ))}
