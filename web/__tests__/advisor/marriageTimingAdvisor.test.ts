@@ -34,4 +34,13 @@ describe('recommendMarriageTiming', () => {
     const result = recommendMarriageTiming(baseProfile)
     expect(result!.card.conclusion).toContain('먼저 신고')
   })
+
+  it('recommends registering for undetermined marriage status', () => {
+    const result = recommendMarriageTiming({ ...baseProfile, marriageStatus: 'undetermined' })
+    expect(result!.card.conclusion).toContain('먼저 신고')
+  })
+
+  it('returns null when marriage status is unknown', () => {
+    expect(recommendMarriageTiming({ ...baseProfile, marriageStatus: null })).toBeNull()
+  })
 })
