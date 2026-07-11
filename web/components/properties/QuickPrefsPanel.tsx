@@ -28,13 +28,8 @@ export default function QuickPrefsPanel() {
           regions,
           budget_min: 0,
           budget_max: budgetMax,
-          property_types: ['sale', 'subscription', 'auction'],
-          monthly_income: 0,
-          assets: 0,
           is_newlywed: isNewlywed,
           is_first_buyer: isFirstBuyer,
-          no_home_years: 0,
-          num_children: 0,
         }),
       })
       if (!r.ok) throw new Error()

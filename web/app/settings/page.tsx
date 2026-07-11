@@ -27,6 +27,8 @@ const CREDIT_SCORE_OPTIONS = [
   { value: '700-', label: '700점 미만', desc: '관리 필요' },
 ]
 
+type IncomeMode = 'combined' | 'individual'
+
 interface Prefs {
   regions: string[]
   budget_min: number
@@ -44,6 +46,9 @@ interface Prefs {
   renovation_budget: number
   credit_score_range: string
   birth_year: number | null
+  income_mode: IncomeMode
+  income_self: number
+  income_spouse: number
 }
 
 const DEFAULT_PREFS: Prefs = {
@@ -63,6 +68,9 @@ const DEFAULT_PREFS: Prefs = {
   renovation_budget: 0,
   credit_score_range: '800-900',
   birth_year: null,
+  income_mode: 'combined',
+  income_self: 0,
+  income_spouse: 0,
 }
 
 function NumInput({
@@ -144,6 +152,19 @@ export default function SettingsPage() {
 
   const set = <K extends keyof Prefs>(k: K) => (v: Prefs[K]) =>
     setPrefs(p => ({ ...p, [k]: v }))
+
+  const setIncomeMode = (mode: IncomeMode) =>
+    setPrefs(p => ({
+      ...p,
+      income_mode: mode,
+      monthly_income: mode === 'individual' ? p.income_self + p.income_spouse : p.monthly_income,
+    }))
+
+  const setIndividualIncome = (who: 'income_self' | 'income_spouse') => (v: number) =>
+    setPrefs(p => {
+      const next = { ...p, [who]: v }
+      return { ...next, monthly_income: next.income_self + next.income_spouse }
+    })
 
   const addRegion = (r: string) => {
     const t = r.trim()
@@ -338,14 +359,61 @@ export default function SettingsPage() {
       <section className="space-y-4">
         <h2 className="font-semibold text-gray-800">재무 정보</h2>
 
+        {prefs.is_newlywed && (
+          <div className="space-y-2">
+            <label className="text-xs text-gray-500 block">소득 입력 방식</label>
+            <div className="grid grid-cols-2 gap-2">
+              <button onClick={() => setIncomeMode('combined')}
+                className={`px-3 py-2 rounded-lg border text-left text-sm transition-colors ${
+                  prefs.income_mode === 'combined'
+                    ? 'bg-indigo-600 text-white border-indigo-600'
+                    : 'border-gray-200 text-gray-600 hover:border-gray-400'
+                }`}>
+                <p className="font-medium">부부합산으로 입력</p>
+                <p className={`text-xs ${prefs.income_mode === 'combined' ? 'text-indigo-200' : 'text-gray-400'}`}>합산액을 바로 입력</p>
+              </button>
+              <button onClick={() => setIncomeMode('individual')}
+                className={`px-3 py-2 rounded-lg border text-left text-sm transition-colors ${
+                  prefs.income_mode === 'individual'
+                    ? 'bg-indigo-600 text-white border-indigo-600'
+                    : 'border-gray-200 text-gray-600 hover:border-gray-400'
+                }`}>
+                <p className="font-medium">개별로 입력</p>
+                <p className={`text-xs ${prefs.income_mode === 'individual' ? 'text-indigo-200' : 'text-gray-400'}`}>본인·배우자 각각 입력 후 자동 합산</p>
+              </button>
+            </div>
+          </div>
+        )}
+
         <div className="grid grid-cols-2 gap-4">
-          <NumInput
-            label="부부합산 연소득"
-            value={prefs.monthly_income}
-            onChange={set('monthly_income')}
-            placeholder="예: 7000"
-            sub="DSR 40% 대출 한도 계산에 사용"
-          />
+          {prefs.is_newlywed && prefs.income_mode === 'individual' ? (
+            <>
+              <NumInput
+                label="본인 연소득"
+                value={prefs.income_self}
+                onChange={setIndividualIncome('income_self')}
+                placeholder="예: 4000"
+              />
+              <NumInput
+                label="배우자 연소득"
+                value={prefs.income_spouse}
+                onChange={setIndividualIncome('income_spouse')}
+                placeholder="예: 3000"
+              />
+              <div className="col-span-2 flex items-center justify-between rounded-lg bg-gray-50 border border-gray-100 px-3 py-2">
+                <span className="text-xs text-gray-500">부부합산 연소득 (자동 계산)</span>
+                <span className="text-sm font-semibold text-gray-900">{prefs.monthly_income.toLocaleString()}만원</span>
+              </div>
+            </>
+          ) : (
+            <NumInput
+              label="부부합산 연소득"
+              value={prefs.monthly_income}
+              onChange={set('monthly_income')}
+              placeholder="예: 7000"
+              sub="DSR 40% 대출 한도 계산에 사용"
+            />
+          )}
           <NumInput
             label="현재 월 대출 상환액"
             value={prefs.existing_loan_payment}
