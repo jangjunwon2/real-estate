@@ -80,3 +80,10 @@ class BackendClient:
             'run_id': run_id,
             'properties': properties,
         })
+
+    async def ingest_policy_proposals(self, proposals: list[dict]) -> dict:
+        if not proposals:
+            return {'saved': 0}
+        return await self._post('/api/pipeline/policy-proposals', {
+            'proposals': proposals,
+        })

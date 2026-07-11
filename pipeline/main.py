@@ -14,6 +14,7 @@ from processors.dedup import deduplicate, filter_real_estate
 from processors.classifier import classify_articles
 from processors.briefing_generator import generate_briefing
 from processors.property_scorer import score_properties
+from processors.policy_watcher import detect_policy_changes
 from notifiers.email_notifier import send_briefing_email
 from notifiers.kakao import send_urgent_alert, send_property_alert
 
@@ -164,6 +165,13 @@ async def main() -> None:
                 await send_urgent_alert(config, urgent)
         except Exception as e:
             logger.warning(f'긴급 알림 발송 실패 (무시): {e}')
+
+        try:
+            proposals = await detect_policy_changes(serialized, config.anthropic_api_key)
+            if proposals:
+                await backend.ingest_policy_proposals(proposals)
+        except Exception as e:
+            logger.warning(f'정책 변경 감지 실패 (무시): {e}')
 
         try:
             top = sorted(scored_props, key=lambda x: x.get('total_score', 0), reverse=True)[:3]
