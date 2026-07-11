@@ -7,6 +7,7 @@ import {
   type AffordableScenario,
 } from '@/lib/koreanRealEstate'
 import NumInput from '@/components/settings/NumInput'
+import EokManInput from '@/components/settings/EokManInput'
 import AdvisorProfileSection, { type AdvisorProfileFields } from '@/components/settings/AdvisorProfileSection'
 
 const CURRENT_YEAR = new Date().getFullYear()
@@ -399,17 +400,15 @@ export default function SettingsPage() {
         <div className="grid grid-cols-2 gap-4">
           {prefs.is_newlywed && prefs.income_mode === 'individual' ? (
             <>
-              <NumInput
+              <EokManInput
                 label="본인 연소득"
                 value={prefs.income_self}
                 onChange={setIndividualIncome('income_self')}
-                placeholder="예: 4000"
               />
-              <NumInput
+              <EokManInput
                 label="배우자 연소득"
                 value={prefs.income_spouse}
                 onChange={setIndividualIncome('income_spouse')}
-                placeholder="예: 3000"
               />
               <div className="col-span-2 flex items-center justify-between rounded-lg bg-gray-50 border border-gray-100 px-3 py-2">
                 <span className="text-xs text-gray-500">부부합산 연소득 (자동 계산)</span>
@@ -417,11 +416,10 @@ export default function SettingsPage() {
               </div>
             </>
           ) : (
-            <NumInput
+            <EokManInput
               label="부부합산 연소득"
               value={prefs.monthly_income}
               onChange={set('monthly_income')}
-              placeholder="예: 7000"
               sub="DSR 40% 대출 한도 계산에 사용"
             />
           )}
@@ -438,10 +436,10 @@ export default function SettingsPage() {
         <div className="rounded-xl bg-gray-50 border border-gray-100 p-4 space-y-4">
           <p className="text-sm font-medium text-gray-700">자기자본 구성</p>
           <div className="grid grid-cols-2 gap-4">
-            <NumInput label="현재 현금·저축" value={prefs.assets} onChange={set('assets')} placeholder="예: 10000" />
-            <NumInput label="전세보증금 회수 예정" value={prefs.deposit_to_recover} onChange={set('deposit_to_recover')} placeholder="0" />
-            <NumInput label="부모·가족 지원 예정" value={prefs.gift_amount} onChange={set('gift_amount')} placeholder="0" />
-            <NumInput label="인테리어 예산 (별도)" value={prefs.renovation_budget} onChange={set('renovation_budget')} placeholder="0" />
+            <EokManInput label="현재 현금·저축" value={prefs.assets} onChange={set('assets')} />
+            <EokManInput label="전세보증금 회수 예정" value={prefs.deposit_to_recover} onChange={set('deposit_to_recover')} />
+            <EokManInput label="부모·가족 지원 예정" value={prefs.gift_amount} onChange={set('gift_amount')} />
+            <EokManInput label="인테리어 예산 (별도)" value={prefs.renovation_budget} onChange={set('renovation_budget')} />
           </div>
           {selfFunds > 0 && (
             <div className="flex justify-between items-center border-t border-gray-200 pt-3 text-sm">
@@ -590,17 +588,14 @@ export default function SettingsPage() {
           <h2 className="font-semibold text-gray-800">예산 범위 (매물 필터)</h2>
           <p className="text-xs text-gray-400 mt-0.5">위 구매 가능 금액을 참고해 설정하세요.</p>
         </div>
-        <div className="flex items-center gap-3">
-          {(['budget_min', 'budget_max'] as const).map((k, i) => (
-            <div key={k} className="flex-1">
-              <label className="text-xs text-gray-500 mb-1 block">{i === 0 ? '최소 (만원)' : '최대 (만원)'}</label>
-              <input type="number" value={prefs[k]}
-                onChange={e => setPrefs(p => ({ ...p, [k]: Number(e.target.value) }))}
-                step={1000}
-                className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none focus:border-indigo-400" />
-            </div>
-          ))}
-          <span className="text-gray-400 mt-5">~</span>
+        <div className="flex items-start gap-3">
+          <div className="flex-1">
+            <EokManInput label="최소" value={prefs.budget_min} onChange={set('budget_min')} />
+          </div>
+          <span className="text-gray-400 mt-8">~</span>
+          <div className="flex-1">
+            <EokManInput label="최대" value={prefs.budget_max} onChange={set('budget_max')} />
+          </div>
         </div>
       </section>
 
