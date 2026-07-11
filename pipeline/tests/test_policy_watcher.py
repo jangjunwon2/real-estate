@@ -59,3 +59,23 @@ async def test_detect_policy_changes_skips_when_ai_says_unchanged():
         result = await detect_policy_changes(articles, 'fake-key')
 
     assert result == []
+
+
+@pytest.mark.asyncio
+async def test_detect_policy_changes_skips_malformed_response_but_keeps_processing():
+    articles = [
+        {'title': 'Bad', 'category': '정책', 'importance': 8, 'summary': 'x', 'url': 'https://example.com/bad'},
+        {'title': 'Good', 'category': '정책', 'importance': 8, 'summary': 'y', 'url': 'https://example.com/good'},
+    ]
+    bad_response = MagicMock()
+    bad_response.content = [MagicMock(text='not valid json at all')]
+    good_response = MagicMock()
+    good_response.content = [MagicMock(text='{"changed": true, "regulation_path": "X.y", "ai_summary": "s", "proposed_diff": "d"}')]
+
+    with patch('processors.policy_watcher.sdk.AsyncAnthropic') as MockClient:
+        instance = MockClient.return_value
+        instance.messages.create = AsyncMock(side_effect=[bad_response, good_response])
+        result = await detect_policy_changes(articles, 'fake-key')
+
+    assert len(result) == 1
+    assert result[0]['article_title'] == 'Good'
