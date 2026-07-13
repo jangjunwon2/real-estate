@@ -96,7 +96,9 @@ export function buildWhatIfSuggestions(input: WhatIfInput): WhatIfSuggestion[] {
           '보금자리론 신혼특례: 소득한도 8,500만원으로 확대, 우대금리 최대 -1.0%p',
           '부부합산 소득으로 DSR 한도가 늘어나고, 신혼부부 특별공급(민영 20%·공공 30%) 청약 자격도 생깁니다',
         ],
-        caution: '혼인신고 시 배우자의 소득뿐 아니라 부채도 합산되어 심사됩니다',
+        caution: input.incomeSelf > 0
+          ? '혼인신고 시 배우자의 소득뿐 아니라 부채도 합산되어 심사됩니다'
+          : '혼인신고 시 배우자의 부채도 합산 심사됩니다 · 신고 전 단독 매수 금액이 부부합산 소득으로 계산되어 실제보다 클 수 있어요 — 재무 정보에서 소득을 개별로 입력하면 비교가 정확해집니다',
       })
     }
   }
@@ -177,7 +179,28 @@ export function buildWhatIfSuggestions(input: WhatIfInput): WhatIfSuggestion[] {
     })
   }
 
-  // ── 6. 관심 지역 규제 영향 — 비규제 지역까지 넓히면 ─────────────────────
+  // ── 6. 규제지역 → 수도권 비규제 — 생활권을 크게 벗어나지 않는 현실적 대안 ──
+  if (zone === 'tohe' || zone === 'overheat' || zone === 'regulated') {
+    const variantMax = bestMaxPrice(selfFunds, fin, 'metro')
+    push({
+      id: 'region-metro',
+      icon: '🚈',
+      title: '수도권 비규제 지역(인천·경기 외곽)까지 넓혀보기',
+      variantMax,
+      variantLabel: '수도권 비규제 매수 시',
+      conclusion: '규제지역을 벗어난 수도권 매물은 LTV가 완화되어 같은 조건으로 예산이 늘어납니다',
+      reasons: [
+        '규제지역 LTV 40%(일반 기준)가 비규제 수도권에서는 70%로 완화됩니다',
+        zone === 'tohe'
+          ? '토지거래허가제(실거주 2년 의무·허가 절차)도 적용되지 않습니다'
+          : '투기과열지구 청약·재당첨 제한도 적용되지 않습니다',
+        '단, 수도권 공통 규제(스트레스DSR +3.0%p, 주담대 절대한도)는 동일하게 적용됩니다',
+      ],
+      caution: '인천·고양·부천 등 수도권 비규제 시·군 기준 — 통근·생활권을 함께 고려하세요',
+    })
+  }
+
+  // ── 7. 관심 지역 규제 영향 — 비규제 지방까지 넓히면 ─────────────────────
   if (zone !== 'none') {
     const variantMax = bestMaxPrice(selfFunds, fin, 'none')
     push({

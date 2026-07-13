@@ -93,6 +93,35 @@ describe('buildWhatIfSuggestions', () => {
   it('does not suggest widening region when zone is already none', () => {
     const input: WhatIfInput = { ...baseInput, zone: 'none' }
     expect(buildWhatIfSuggestions(input).find(x => x.id === 'region-widen')).toBeUndefined()
+    expect(buildWhatIfSuggestions(input).find(x => x.id === 'region-metro')).toBeUndefined()
+  })
+
+  it('suggests 수도권 비규제 for non-first-buyer in 규제지역 (LTV 40% → 70%)', () => {
+    const input: WhatIfInput = {
+      ...baseInput,
+      finance: { ...baseFinance, isFirstBuyer: false, isNewlywed: false, income: 15000 },
+      buyerType: 'solo',
+    }
+    const s = buildWhatIfSuggestions(input).find(x => x.id === 'region-metro')
+    expect(s).toBeDefined()
+    expect(s!.deltaAmount).toBeGreaterThan(0)
+  })
+
+  it('does not suggest 수도권 비규제 when metro zone is already active', () => {
+    const input: WhatIfInput = { ...baseInput, zone: 'metro' }
+    expect(buildWhatIfSuggestions(input).find(x => x.id === 'region-metro')).toBeUndefined()
+  })
+
+  it('marriage-register caution mentions individual income entry when incomeSelf is missing', () => {
+    const input: WhatIfInput = { ...baseInput, marriageStatus: 'planned', incomeSelf: 0 }
+    const s = buildWhatIfSuggestions(input).find(x => x.id === 'marriage-register')
+    if (s) {
+      expect(s.caution).toContain('개별')
+    }
+    const withSelf = buildWhatIfSuggestions({ ...input, incomeSelf: 4000 })
+      .find(x => x.id === 'marriage-register')
+    expect(withSelf).toBeDefined()
+    expect(withSelf!.caution).not.toContain('개별')
   })
 
   it('sorts suggestions by benefit descending', () => {

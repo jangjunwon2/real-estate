@@ -419,6 +419,9 @@ export default function SettingsPage() {
                 <p className={`text-xs ${prefs.income_mode === 'individual' ? 'text-indigo-200' : 'text-gray-400'}`}>본인·배우자 각각 입력 후 자동 합산</p>
               </button>
             </div>
+            <p className="text-[11px] text-gray-400">
+              💡 개별로 입력하면 아래 전략 추천에서 &lsquo;혼인신고 전 단독 명의 매수&rsquo; 시나리오가 본인 소득 기준으로 정확하게 계산됩니다.
+            </p>
           </div>
         )}
 

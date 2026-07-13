@@ -10,7 +10,26 @@ interface StrategySuggestionsProps {
 export default function StrategySuggestions({ input }: StrategySuggestionsProps) {
   const suggestions = useMemo(() => buildWhatIfSuggestions(input), [input])
 
-  if (suggestions.length === 0) return null
+  // 소득·자기자본 미입력이면 시뮬레이션 불가 — 섹션 자체를 숨김 (부모에서도 가드하지만 이중 안전)
+  if (input.finance.income <= 0 || input.selfFunds <= 0) return null
+
+  if (suggestions.length === 0) {
+    return (
+      <section className="space-y-3">
+        <h2 className="font-semibold text-gray-800">전략 추천</h2>
+        <div className="rounded-xl border border-emerald-100 bg-emerald-50/40 p-4 flex items-start gap-2.5">
+          <span className="text-lg">✅</span>
+          <div>
+            <p className="text-sm font-semibold text-gray-800">현재 조건이 이미 최적에 가깝습니다</p>
+            <p className="text-xs text-gray-500 mt-0.5">
+              혼인신고·출산·대출 정리 등 조건을 바꿔 시뮬레이션해도 지금보다 구매력이 늘어나는 시나리오가 없습니다.
+              정보가 바뀌면 다시 계산해 알려드릴게요.
+            </p>
+          </div>
+        </div>
+      </section>
+    )
+  }
 
   return (
     <section className="space-y-3">
