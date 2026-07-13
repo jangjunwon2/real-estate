@@ -52,7 +52,7 @@ export async function GET(
     .select('id, price, complexes(name, sigungu, road_address)')
     .eq('id', id)
     .single()
-  if (error || !property) return Response.json({ error: 'not found' }, { status: 404 })
+  if (error || !property) return Response.json({ error: '매물을 찾을 수 없습니다' }, { status: 404 })
 
   const complex = property.complexes as unknown as
     { name: string; sigungu: string; road_address: string | null } | null
@@ -66,11 +66,24 @@ export async function GET(
   }
 
   try {
-    const monthly = await Promise.all(
+    const settled = await Promise.allSettled(
       recentMonths(LOOKBACK_MONTHS).map(m => getMonthDealsCached(db, lawdCd, m)),
     )
-    const matched = monthly
-      .flat()
+    const fulfilled = settled.filter(
+      (r): r is PromiseFulfilledResult<MolitDeal[]> => r.status === 'fulfilled',
+    )
+    if (fulfilled.length === 0) {
+      const firstReason = settled.find(
+        (r): r is PromiseRejectedResult => r.status === 'rejected',
+      )?.reason
+      const message = firstReason instanceof MolitApiError
+        ? firstReason.message
+        : '실거래가 조회에 실패했습니다. 잠시 후 다시 시도해 주세요.'
+      return Response.json({ error: message }, { status: 502 })
+    }
+
+    const matched = fulfilled
+      .flatMap(r => r.value)
       .filter(d => matchesComplex(d.aptName, complex.name))
       .sort((a, b) => b.dealDate.localeCompare(a.dealDate))
 
