@@ -23,9 +23,9 @@ function profit(base: number, pct: number) {
 function formatProfit(amount: number) {
   const abs = Math.abs(amount)
   const sign = amount >= 0 ? '+' : '-'
-  if (abs >= 100000000) return `${sign}${(abs / 100000000).toFixed(1)}억`
-  if (abs >= 10000) return `${sign}${Math.round(abs / 10000).toLocaleString()}만원`
-  return `${sign}${abs.toLocaleString()}원`
+  if (abs >= 10000) return `${sign}${(abs / 10000).toFixed(1)}억`
+  if (abs >= 1) return `${sign}${Math.round(abs).toLocaleString()}만원`
+  return `${sign}0만원`
 }
 
 // Map pct in [-30, +50] range to 0-100 bar position

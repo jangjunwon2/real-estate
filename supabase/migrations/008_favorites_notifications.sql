@@ -13,6 +13,7 @@ CREATE INDEX IF NOT EXISTS favorites_user_idx ON favorites (user_id);
 
 ALTER TABLE favorites ENABLE ROW LEVEL SECURITY;
 
+DROP POLICY IF EXISTS "favorites_self" ON favorites;
 CREATE POLICY "favorites_self" ON favorites
   FOR ALL USING (auth.uid() = user_id);
 

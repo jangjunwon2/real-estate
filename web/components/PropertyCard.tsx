@@ -43,7 +43,7 @@ export default function PropertyCard({ property }: { property: Property }) {
   const ss = score ? scoreStyle(score.total_score) : null
   const sqm = property.area_sqm ? Number(property.area_sqm) : null
   const pyeong = sqm ? Math.round(sqm / SQM_PER_PYEONG) : null
-  const ppp = property.price && sqm ? Math.round((property.price / (sqm / SQM_PER_PYEONG)) / 10000) : null
+  const ppp = property.price && sqm ? Math.round(property.price / (sqm / SQM_PER_PYEONG)) : null
 
   let dateCtx: string | null = null
   if (property.property_type === 'auction' && property.auction_date) {

@@ -169,7 +169,7 @@ export default function PriceComparisonSection({
                       {!isCurrent && diffPct !== null && <DiffBadge pct={diffPct} />}
                       <div className="text-right">
                         <p className="text-sm font-bold text-gray-900">{formatPrice(Math.round(stat.avgPrice))}</p>
-                        <p className="text-[10px] text-gray-400">평당 {Math.round(stat.avgPPP / 10000).toLocaleString()}만원</p>
+                        <p className="text-[10px] text-gray-400">평당 {Math.round(stat.avgPPP).toLocaleString()}만원</p>
                       </div>
                     </div>
                   </div>
@@ -188,7 +188,7 @@ export default function PriceComparisonSection({
           <div className="grid grid-cols-2 gap-2">
             {sameComplex.slice(0, 6).map(p => {
               const pyeong = p.area_sqm ? Math.round(toPyeong(p.area_sqm)) : null
-              const ppp = p.price && p.area_sqm ? Math.round(pricePer(p.price, p.area_sqm) / 10000) : null
+              const ppp = p.price && p.area_sqm ? Math.round(pricePer(p.price, p.area_sqm)) : null
               const diffPct = currentPrice && p.price ? Math.round(((p.price - currentPrice) / currentPrice) * 100) : null
               const cheaper = diffPct !== null && diffPct < 0
               return (
@@ -209,7 +209,7 @@ export default function PriceComparisonSection({
           </div>
           {curPPP && (
             <p className="text-xs text-gray-500 bg-gray-50 rounded-lg px-3 py-2">
-              현재 매물 평당가 <span className="font-semibold text-gray-700">{Math.round(curPPP / 10000).toLocaleString()}만원</span>
+              현재 매물 평당가 <span className="font-semibold text-gray-700">{Math.round(curPPP).toLocaleString()}만원</span>
             </p>
           )}
         </div>
