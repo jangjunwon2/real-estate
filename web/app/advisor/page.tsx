@@ -23,7 +23,7 @@ export default async function AdvisorPage() {
     return (
       <main className="max-w-xl mx-auto px-4 py-12 text-center space-y-3">
         <p className="text-gray-600 font-medium">추천을 받으려면 먼저 정보를 입력해주세요</p>
-        <a href="/settings" className="inline-block px-4 py-2 rounded-lg bg-gray-900 text-white text-sm">내 정보 입력하러 가기 →</a>
+        <a href="/settings" className="inline-block px-4 py-2 rounded-lg bg-gray-900 text-white text-sm">분석 및 추천에서 정보 입력하기 →</a>
       </main>
     )
   }

@@ -80,7 +80,7 @@ export default function TotalCostCard({
           </span>
         </div>
         {selfFunds === 0 && effectiveLoan === 0 && (
-          <p className="text-[11px] text-gray-400">자금 계획 비교를 위해 <a href="/settings" className="underline text-indigo-500">내 정보</a>를 입력해주세요.</p>
+          <p className="text-[11px] text-gray-400">자금 계획 비교를 위해 <a href="/settings" className="underline text-indigo-500">분석 및 추천</a>에서 정보를 입력해주세요.</p>
         )}
       </div>
 

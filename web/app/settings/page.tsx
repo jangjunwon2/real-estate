@@ -10,6 +10,8 @@ import {
 import NumInput from '@/components/settings/NumInput'
 import EokManInput from '@/components/settings/EokManInput'
 import AdvisorProfileSection, { type AdvisorProfileFields } from '@/components/settings/AdvisorProfileSection'
+import StrategySuggestions from '@/components/settings/StrategySuggestions'
+import type { WhatIfInput } from '@/lib/advisor/whatIfAdvisor'
 
 const CURRENT_YEAR = new Date().getFullYear()
 
@@ -219,6 +221,19 @@ export default function SettingsPage() {
 
   const bestEligible = affordableScenarios.find(s => s.eligible && s.maxPrice > 0)
 
+  // What-if 전략 시뮬레이션 입력 — 조건을 바꿨을 때 구매력 변화를 비교
+  const whatIfInput: WhatIfInput = useMemo(() => ({
+    finance,
+    selfFunds,
+    zone,
+    buyerType: prefs.buyer_type,
+    marriageStatus: prefs.marriage_status,
+    selfHomeStatus: prefs.self_home_status,
+    spouseHomeStatus: prefs.spouse_home_status,
+    incomeSelf: prefs.income_mode === 'individual' ? prefs.income_self : 0,
+  }), [finance, selfFunds, zone, prefs.buyer_type, prefs.marriage_status,
+       prefs.self_home_status, prefs.spouse_home_status, prefs.income_mode, prefs.income_self])
+
   const save = async () => {
     setSaving(true); setSaveError(false)
     try {
@@ -253,8 +268,10 @@ export default function SettingsPage() {
   return (
     <main className="max-w-xl mx-auto px-4 py-10 space-y-10">
       <div>
-        <h1 className="text-xl font-bold text-gray-900">내 정보 설정</h1>
-        <p className="text-sm text-gray-500 mt-1">실제 자금과 상태를 입력하면 구매 가능 금액을 자동으로 계산합니다.</p>
+        <h1 className="text-xl font-bold text-gray-900">분석 및 추천</h1>
+        <p className="text-sm text-gray-500 mt-1">
+          실제 자금과 상태를 입력하면 구매 가능 금액을 계산하고, 조건을 바꿨을 때 더 유리해지는 전략까지 추천합니다.
+        </p>
       </div>
 
       {/* ══ 1. 내 상태 ═══════════════════════════════════════════════════ */}
@@ -564,6 +581,11 @@ export default function SettingsPage() {
             ※ 취득세·법무사 등 부대비용 별도. 실제 대출은 금융기관 심사에 따라 다름.
           </p>
         </section>
+      )}
+
+      {/* ══ 3.5. 전략 추천 (What-if 시뮬레이션) ═══════════════════════════ */}
+      {selfFunds > 0 && prefs.monthly_income > 0 && (
+        <StrategySuggestions input={whatIfInput} />
       )}
 
       {/* ══ 4. 관심 지역 ════════════════════════════════════════════════ */}

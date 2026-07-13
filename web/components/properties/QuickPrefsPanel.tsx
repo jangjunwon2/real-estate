@@ -46,7 +46,7 @@ export default function QuickPrefsPanel() {
     <div className="rounded-xl border border-amber-200 bg-amber-50 p-5 space-y-5">
       <div>
         <p className="font-semibold text-gray-800">맞춤 매물 추천을 위해 조건을 입력해주세요</p>
-        <p className="text-xs text-gray-500 mt-0.5">상세 설정은 <a href="/settings" className="text-indigo-600 underline">내 정보</a>에서 변경할 수 있어요</p>
+        <p className="text-xs text-gray-500 mt-0.5">상세 설정은 <a href="/settings" className="text-indigo-600 underline">분석 및 추천</a>에서 변경할 수 있어요</p>
       </div>
 
       {/* 내 상태 */}

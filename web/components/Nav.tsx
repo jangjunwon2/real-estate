@@ -8,7 +8,7 @@ const LINKS = [
   { href: '/properties', label: '매물' },
   { href: '/favorites',  label: '즐겨찾기' },
   { href: '/pricing',    label: '요금제' },
-  { href: '/settings',   label: '내 정보' },
+  { href: '/settings',   label: '분석 및 추천' },
 ]
 
 const ADMIN_EMAIL = process.env.ADMIN_EMAIL

@@ -171,7 +171,7 @@ export default async function PropertiesPage({
           </div>
         ) : (
           <div className="flex items-center justify-between rounded-xl bg-amber-50 border border-amber-100 px-4 py-3">
-            <p className="text-xs text-amber-700">내 정보를 설정하면 대출 적격성·맞춤 추천을 받을 수 있어요</p>
+            <p className="text-xs text-amber-700">분석 및 추천에서 정보를 입력하면 대출 적격성·맞춤 전략 추천을 받을 수 있어요</p>
             <Link href="/settings" className="shrink-0 text-xs font-bold text-amber-700 underline ml-3">설정하기</Link>
           </div>
         )}

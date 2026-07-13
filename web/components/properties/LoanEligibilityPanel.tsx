@@ -14,7 +14,7 @@ export default function LoanEligibilityPanel({ price, finance, sigungu }: Props)
       <section className="rounded-xl border border-amber-200 bg-amber-50 p-4 space-y-2">
         <h2 className="text-sm font-semibold text-gray-800">대출 적격성 분석</h2>
         <p className="text-sm text-amber-700">소득 정보를 입력하면 대출 적격성과 월 상환액을 자동 계산합니다.</p>
-        <Link href="/settings" className="inline-block text-xs text-indigo-600 font-medium underline">내 정보 입력하기 →</Link>
+        <Link href="/settings" className="inline-block text-xs text-indigo-600 font-medium underline">분석 및 추천에서 정보 입력하기 →</Link>
       </section>
     )
   }
