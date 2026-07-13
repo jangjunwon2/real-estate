@@ -149,6 +149,12 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
   const typeLabel = TYPE_LABEL[property.property_type] ?? property.property_type
   const typeColor = TYPE_COLOR[property.property_type] ?? 'bg-gray-600 text-white'
 
+  // 세대(본인+배우자) 보유 주택 수 — 유주택자 대출 규제 판정에 사용
+  const HOME_COUNT: Record<string, number> = { none: 0, one: 1, multiple: 2 }
+  const ownedHomes = prefs
+    ? (HOME_COUNT[prefs.self_home_status ?? 'none'] ?? 0) + (HOME_COUNT[prefs.spouse_home_status ?? 'none'] ?? 0)
+    : 0
+
   const finance: UserFinance | null = prefs ? {
     income: prefs.monthly_income ?? 0,
     assets: prefs.assets ?? 0,
@@ -159,6 +165,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
     isFirstBuyer: prefs.is_first_buyer ?? false,
     noHomeYears: prefs.no_home_years ?? 0,
     numChildren: prefs.num_children ?? 0,
+    ownedHomes,
   } : null
 
   const price = property.price ?? 0
@@ -175,7 +182,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
 
   const sqm = property.area_sqm ? Number(property.area_sqm) : null
   const pyeong = sqm ? Math.round(sqm / SQM_PER_PYEONG) : null
-  const ppp = price && sqm ? Math.round((price / (sqm / SQM_PER_PYEONG)) / 10000) : null
+  const ppp = price && sqm ? Math.round(price / (sqm / SQM_PER_PYEONG)) : null
 
   const scoreItems = score ? [
     { label: '가격', value: score.price_score ?? 0, max: 20 },

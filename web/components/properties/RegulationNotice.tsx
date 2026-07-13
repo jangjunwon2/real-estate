@@ -4,6 +4,7 @@ const TYPE_COLOR = {
   tohe:      { bg: 'bg-red-50',    border: 'border-red-200',    title: 'text-red-800',    badge: 'bg-red-100 text-red-700'    },
   overheat:  { bg: 'bg-orange-50', border: 'border-orange-200', title: 'text-orange-800', badge: 'bg-orange-100 text-orange-700' },
   regulated: { bg: 'bg-yellow-50', border: 'border-yellow-200', title: 'text-yellow-800', badge: 'bg-yellow-100 text-yellow-700' },
+  metro:     { bg: 'bg-blue-50',   border: 'border-blue-200',   title: 'text-blue-800',   badge: 'bg-blue-100 text-blue-700'  },
   'price-cap': { bg: 'bg-gray-50', border: 'border-gray-200',   title: 'text-gray-800',   badge: 'bg-gray-100 text-gray-700'  },
 }
 

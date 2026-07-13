@@ -189,6 +189,10 @@ export default function SettingsPage() {
   const age = prefs.birth_year ? CURRENT_YEAR - prefs.birth_year : null
   const selfFunds = prefs.assets + prefs.deposit_to_recover + prefs.gift_amount
 
+  // 세대(본인+배우자) 보유 주택 수 — 유주택자 대출 규제(수도권·규제지역 주담대 금지) 판정에 사용
+  const HOME_COUNT: Record<string, number> = { none: 0, one: 1, multiple: 2 }
+  const ownedHomes = (HOME_COUNT[prefs.self_home_status] ?? 0) + (HOME_COUNT[prefs.spouse_home_status ?? 'none'] ?? 0)
+
   const finance: UserFinance = useMemo(() => ({
     income: prefs.monthly_income,
     assets: prefs.assets,
@@ -199,10 +203,11 @@ export default function SettingsPage() {
     isFirstBuyer: prefs.is_first_buyer,
     noHomeYears: prefs.no_home_years,
     numChildren: prefs.num_children,
+    ownedHomes,
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [prefs.monthly_income, prefs.assets, prefs.deposit_to_recover, prefs.gift_amount,
        prefs.existing_loan_payment, prefs.is_newlywed, prefs.is_first_buyer,
-       prefs.no_home_years, prefs.num_children])
+       prefs.no_home_years, prefs.num_children, ownedHomes])
 
   const zone = useMemo(() => detectStrictestZone(prefs.regions), [prefs.regions])
 
@@ -483,6 +488,7 @@ export default function SettingsPage() {
             <p className="text-xs text-gray-500 mt-0.5">
               자기자본 <strong>{priceLabel(selfFunds)}원</strong> 기준 · 대출 상품별 최대 구매가
               {zone !== 'none' && ' · 관심 지역 중 규제가 가장 강한 지역 기준으로 계산됨'}
+              {ownedHomes > 0 && ` · 보유 주택 ${ownedHomes}채 반영 (유주택자 대출 규제 적용)`}
             </p>
           </div>
 

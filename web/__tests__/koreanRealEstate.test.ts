@@ -141,9 +141,22 @@ describe('detectZoneType', () => {
     expect(detectZoneType('서울 노원구')).toBe('tohe')
   })
 
+  it('classifies 경기 규제지역 as overheat', () => {
+    expect(detectZoneType('경기 과천시')).toBe('overheat')
+    expect(detectZoneType('성남시 분당구')).toBe('overheat')
+  })
+
+  it('classifies 수도권 비규제 as metro (스트레스DSR +3.0%p 대상)', () => {
+    expect(detectZoneType('인천 연수구')).toBe('metro')
+    expect(detectZoneType('경기 고양')).toBe('metro')
+    expect(detectZoneType('고양시 덕양구')).toBe('metro')
+    expect(detectZoneType('경기 부천')).toBe('metro')
+  })
+
   it('returns none for unknown area', () => {
     expect(detectZoneType('제주시')).toBe('none')
     expect(detectZoneType('전라남도 순천시')).toBe('none')
+    expect(detectZoneType('부산 해운대구')).toBe('none')
   })
 
   it('returns none for null/undefined', () => {
@@ -165,6 +178,7 @@ describe('calcAffordableScenarios', () => {
     isFirstBuyer: true,
     noHomeYears: 10,
     numChildren: 1,
+    ownedHomes: 0,
   }
 
   it('returns 5 scenarios', () => {
@@ -220,6 +234,34 @@ describe('calcAffordableScenarios', () => {
     const general = scenarios.find(s => s.id === 'general')
     expect(general?.subName).toBe('시중은행')
   })
+
+  it('metro zone reduces general mortgage limit vs 지방 (스트레스DSR +3.0%p vs +0.75%p)', () => {
+    const fin: UserFinance = { ...baseFinance, isFirstBuyer: false, income: 15000 }
+    const none = calcAffordableScenarios(30000, fin, 'none').find(s => s.id === 'general')
+    const metro = calcAffordableScenarios(30000, fin, 'metro').find(s => s.id === 'general')
+    expect(metro?.eligible).toBe(true)
+    expect(metro!.maxPrice).toBeLessThan(none!.maxPrice)
+  })
+
+  it('유주택자 is blocked from all loans in 수도권·규제지역', () => {
+    const fin: UserFinance = { ...baseFinance, ownedHomes: 1 }
+    for (const zone of ['tohe', 'metro'] as const) {
+      const scenarios = calcAffordableScenarios(20000, fin, zone)
+      const general = scenarios.find(s => s.id === 'general')
+      expect(general?.eligible).toBe(false)
+      expect(general?.blockedReasons.join()).toContain('유주택자')
+      const didimdol = scenarios.find(s => s.id === 'didimdol-special')
+      expect(didimdol?.eligible).toBe(false)
+      expect(didimdol?.blockedReasons.join()).toContain('무주택')
+    }
+  })
+
+  it('유주택자 in 비수도권 can still use general mortgage (LTV 60%)', () => {
+    const fin: UserFinance = { ...baseFinance, ownedHomes: 1, isFirstBuyer: false }
+    const general = calcAffordableScenarios(20000, fin, 'none').find(s => s.id === 'general')
+    expect(general?.eligible).toBe(true)
+    expect(general!.maxPrice).toBeGreaterThan(0)
+  })
 })
 
 // ─── detectStrictestZone ────────────────────────────────────────────────────
@@ -252,6 +294,7 @@ describe('calcLoanProducts', () => {
     isFirstBuyer: true,
     noHomeYears: 5,
     numChildren: 0,
+    ownedHomes: 0,
   }
 
   it('returns 5 products', () => {
@@ -267,9 +310,39 @@ describe('calcLoanProducts', () => {
     }
   })
 
-  it('LTV is lower in regulated zone vs none', () => {
-    const seoulProducts = calcLoanProducts(40000, finance, '서울 강남구')
-    const general = seoulProducts.find(p => p.id === 'general')
-    expect(general?.ltvRate).toBeLessThanOrEqual(0.6) // tohe: 60% max
+  it('규제지역 생애최초 LTV is 70% (2025.6.27 대책), 일반 40%', () => {
+    const fbGeneral = calcLoanProducts(40000, finance, '서울 강남구').find(p => p.id === 'general')
+    expect(fbGeneral?.ltvRate).toBe(0.7)
+    const nonFb = calcLoanProducts(40000, { ...finance, isFirstBuyer: false }, '서울 강남구').find(p => p.id === 'general')
+    expect(nonFb?.ltvRate).toBe(0.4)
+  })
+
+  it('지방 생애최초 LTV 80% + 대출 절대한도 6억', () => {
+    const rich: UserFinance = { ...finance, income: 30000, assets: 100000 }
+    const general = calcLoanProducts(100000, rich, '부산 해운대구').find(p => p.id === 'general')
+    expect(general?.ltvRate).toBe(0.8)
+    expect(general!.calcLoan(100000)).toBeLessThanOrEqual(60000) // 생애최초 한도 6억
+  })
+
+  it('유주택자 in 서울 — 일반 주담대 금지 (LTV 0%)', () => {
+    const owner: UserFinance = { ...finance, isFirstBuyer: false, isNewlywed: false, ownedHomes: 1 }
+    const general = calcLoanProducts(80000, owner, '서울 강남구').find(p => p.id === 'general')
+    expect(general?.eligible).toBe(false)
+    expect(general?.ltvRate).toBe(0)
+    expect(general?.calcLoan(80000)).toBe(0)
+  })
+
+  it('유주택자 in 지방 — 일반 주담대 LTV 60%', () => {
+    const owner: UserFinance = { ...finance, isFirstBuyer: false, isNewlywed: false, ownedHomes: 1 }
+    const general = calcLoanProducts(40000, owner, '부산 해운대구').find(p => p.id === 'general')
+    expect(general?.eligible).toBe(true)
+    expect(general?.ltvRate).toBe(0.6)
+  })
+
+  it('수도권 비규제(metro)도 절대한도 적용 — 15억 이하 대출 최대 6억', () => {
+    const rich: UserFinance = { ...finance, isFirstBuyer: false, isNewlywed: false, income: 50000, assets: 100000 }
+    const general = calcLoanProducts(140000, rich, '인천 연수구').find(p => p.id === 'general')
+    expect(general?.eligible).toBe(true)
+    expect(general!.calcLoan(140000)).toBeLessThanOrEqual(60000)
   })
 })

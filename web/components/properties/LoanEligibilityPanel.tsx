@@ -44,13 +44,20 @@ export default function LoanEligibilityPanel({ price, finance, sigungu }: Props)
             기존 상환 월 {formatPrice(finance.existingLoanPayment)}
           </span>
         )}
-        {zone !== 'none' && (
+        {finance.ownedHomes > 0 && (
           <span className="text-[11px] px-2 py-0.5 rounded-full bg-red-100 text-red-700">
+            🏘 보유 주택 {finance.ownedHomes}채 (유주택 규제 적용)
+          </span>
+        )}
+        {zone !== 'none' && (
+          <span className={`text-[11px] px-2 py-0.5 rounded-full ${zone === 'metro' ? 'bg-blue-100 text-blue-700' : 'bg-red-100 text-red-700'}`}>
             {zone === 'tohe'
               ? '토허제·투기과열·조정 (서울 전역)'
               : zone === 'overheat'
                 ? '투기과열·조정대상 (경기)'
-                : '조정대상지역'}
+                : zone === 'regulated'
+                  ? '조정대상지역'
+                  : '수도권 · 스트레스DSR +3.0%p'}
           </span>
         )}
       </div>
@@ -117,8 +124,9 @@ export default function LoanEligibilityPanel({ price, finance, sigungu }: Props)
       )}
 
       <p className="text-[11px] text-gray-400">
-        ※ 2026년 7월 기준 규정 적용 (10·15 부동산 대책, 스트레스DSR 3단계 포함).
-        규제지역 주담대는 실금리 +3.0%p 가산 후 DSR 계산 → 한도 감소 효과 반영.
+        ※ 2026년 7월 기준 규정 적용 (10·15 부동산 대책, 6·27 가계부채 대책, 스트레스DSR 3단계 포함).
+        수도권·규제지역 주담대는 실금리 +3.0%p 가산 후 DSR 40% 계산 (지방 +0.75%p) → 한도 감소 효과 반영.
+        유주택자 수도권·규제지역 추가 구입 주담대 금지, 생애최초 우대 한도 6억 적용.
         금리·한도는 개인 신용도·심사 결과에 따라 다를 수 있습니다.
       </p>
     </section>
