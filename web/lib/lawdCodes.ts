@@ -42,8 +42,9 @@ const LAWD_CODES: Record<string, string> = {
 
 /**
  * 시군구명(+도로명주소)을 법정동 시군구코드로 변환.
- * 직접 매칭 실패 시, 키의 모든 어절이 `sigungu + roadAddress` 안에
- * 존재하는 가장 긴 키를 선택한다 (다구 도시의 구 보완 매칭).
+ * 직접 매칭 실패 시, 키의 모든 어절이 `sigungu + roadAddress`의 일부 토큰과
+ * 접두사 매칭되는 가장 긴 키를 선택한다 (다구 도시의 구 보완 매칭).
+ * 접두사 매칭은 '동구' vs '성동구' 같은 접미사 충돌을 방지한다.
  */
 export function resolveLawdCode(
   sigungu: string | null | undefined,
@@ -53,9 +54,9 @@ export function resolveLawdCode(
   const s = sigungu.trim()
   if (LAWD_CODES[s]) return LAWD_CODES[s]
 
-  const source = `${s} ${roadAddress ?? ''}`
+  const sourceTokens = `${s} ${roadAddress ?? ''}`.split(/\s+/).filter(Boolean)
   const matched = Object.keys(LAWD_CODES)
-    .filter(key => key.split(' ').every(part => source.includes(part)))
+    .filter(key => key.split(' ').every(part => sourceTokens.some(token => token.startsWith(part))))
     .sort((a, b) => b.length - a.length)
   return matched.length > 0 ? LAWD_CODES[matched[0]] : null
 }

@@ -32,4 +32,15 @@ describe('resolveLawdCode', () => {
     expect(resolveLawdCode(undefined)).toBeNull()
     expect(resolveLawdCode('')).toBeNull()
   })
+
+  it('시도 전체 명칭(경기도, 서울특별시)도 접두사로 매칭한다', () => {
+    expect(resolveLawdCode('경기도 남양주시')).toBe('41360')
+    expect(resolveLawdCode('서울특별시 강동구')).toBe('11740')
+    expect(resolveLawdCode('인천광역시 동구')).toBe('28140')
+  })
+
+  it('접미사가 겹치는 지역명을 혼동하지 않는다 (양주시 vs 남양주시)', () => {
+    expect(resolveLawdCode('경기도 양주시')).toBe('41630')
+    expect(resolveLawdCode('서울특별시 성동구')).toBe('11200')
+  })
 })
