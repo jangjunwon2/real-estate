@@ -18,6 +18,7 @@ import FavoriteButton from '@/components/FavoriteButton'
 import ScoreRing from '@/components/properties/ScoreRing'
 import PriceComparisonSection, { type SameComplexProp, type NearbyProp } from '@/components/properties/PriceComparisonSection'
 import AIPriceForecastCard from '@/components/properties/AIPriceForecastCard'
+import { resolveLawdCode } from '@/lib/lawdCodes'
 
 export const dynamic = 'force-dynamic'
 
@@ -430,6 +431,11 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
         nearbyProps={nearbyData.nearbyProps}
         sigungu={sigungu}
         complexName={complex?.name ?? null}
+        showTransactions={
+          Boolean(process.env.MOLIT_API_KEY) &&
+          !!complex?.name &&
+          resolveLawdCode(complex?.sigungu ?? null, complex?.road_address ?? null) !== null
+        }
       />
 
       {/* ── AI 시세 전망 ── */}

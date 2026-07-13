@@ -1,5 +1,6 @@
 import { formatPrice } from '@/lib/formatPrice'
 import Link from 'next/link'
+import TransactionHistorySection from './TransactionHistorySection'
 
 const SQM_PER_PYEONG = 3.3058
 
@@ -37,6 +38,7 @@ export interface NearbyProp {
 interface Props {
   currentId: string; currentPrice: number | null; currentSqm: number | null; currentFloor: number | null
   sameComplex: SameComplexProp[]; nearbyProps: NearbyProp[]; sigungu: string | null; complexName: string | null
+  showTransactions?: boolean
 }
 
 function DiffBadge({ pct }: { pct: number }) {
@@ -63,6 +65,7 @@ function PriceBar({ value, max, isCurrent }: { value: number; max: number; isCur
 export default function PriceComparisonSection({
   currentId, currentPrice, currentSqm, currentFloor,
   sameComplex, nearbyProps, sigungu, complexName,
+  showTransactions = false,
 }: Props) {
   const curFloorBand = floorBand(currentFloor)
   const curSizeBand = sizeBand(currentSqm)
@@ -247,6 +250,7 @@ export default function PriceComparisonSection({
       {/* 공공 데이터 */}
       <div className="rounded-2xl bg-gray-50 p-4 space-y-2.5">
         <p className="text-xs font-semibold text-gray-600">실거래가 · 공시지가 공공 데이터</p>
+        {showTransactions && <TransactionHistorySection propertyId={currentId} />}
         <div className="grid grid-cols-1 gap-2">
           <a href="https://rt.molit.go.kr" target="_blank" rel="noopener noreferrer"
             className="flex items-center justify-between rounded-xl bg-white border border-gray-200 px-3 py-2.5 hover:border-indigo-300 hover:shadow-sm transition-all">
