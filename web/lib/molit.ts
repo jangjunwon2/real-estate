@@ -22,9 +22,17 @@ const MOLIT_ENDPOINT =
 const FETCH_TIMEOUT_MS = 8000
 const SUCCESS_CODES = ['000', '00']
 
+function toFiniteNumber(raw: string | null): number | null {
+  if (raw === null) return null
+  const n = Number(raw)
+  return Number.isFinite(n) ? n : null
+}
+
 function tagValue(block: string, tag: string): string | null {
-  const m = block.match(new RegExp(`<${tag}>([^<]*)</${tag}>`))
-  const value = m?.[1].trim()
+  const m = block.match(
+    new RegExp(`<${tag}>\\s*(?:<!\\[CDATA\\[([\\s\\S]*?)\\]\\]>|([^<]*))\\s*</${tag}>`),
+  )
+  const value = (m?.[1] ?? m?.[2])?.trim()
   return value ? value : null
 }
 
@@ -55,8 +63,8 @@ export function parseMolitXml(xml: string): MolitDeal[] {
     deals.push({
       aptName,
       dealDate: `${year}-${month.padStart(2, '0')}-${day.padStart(2, '0')}`,
-      floor: floorRaw !== null ? Number(floorRaw) : null,
-      areaSqm: areaRaw !== null ? Number(areaRaw) : null,
+      floor: toFiniteNumber(floorRaw),
+      areaSqm: toFiniteNumber(areaRaw),
       priceManwon,
     })
   }
@@ -84,7 +92,7 @@ export function summarizeDeals(
   if (deals.length === 0) return { count: 0, avgPriceManwon: null, vsCurrentPct: null }
   const avg = deals.reduce((sum, d) => sum + d.priceManwon, 0) / deals.length
   const vsCurrentPct =
-    currentPriceManwon && currentPriceManwon > 0
+    currentPriceManwon && currentPriceManwon > 0 && avg > 0
       ? Math.round(((currentPriceManwon - avg) / avg) * 1000) / 10
       : null
   return { count: deals.length, avgPriceManwon: Math.round(avg), vsCurrentPct }

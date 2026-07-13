@@ -51,6 +51,27 @@ describe('parseMolitXml', () => {
     expect(() => parseMolitXml(AUTH_ERROR_XML)).toThrow(MolitApiError)
     expect(() => parseMolitXml(AUTH_ERROR_XML)).toThrow(/SERVICE_KEY/)
   })
+
+  it('CDATA로 감싼 값을 파싱한다', () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<response><header><resultCode>000</resultCode></header><body><items>
+<item><aptNm><![CDATA[래미안(특수)]]></aptNm><dealAmount><![CDATA[ 84,000]]></dealAmount><dealYear>2026</dealYear><dealMonth>6</dealMonth><dealDay>1</dealDay></item>
+</items></body></response>`
+    const deals = parseMolitXml(xml)
+    expect(deals).toHaveLength(1)
+    expect(deals[0].aptName).toBe('래미안(특수)')
+    expect(deals[0].priceManwon).toBe(84000)
+  })
+
+  it('숫자가 아닌 층/면적은 null로 처리한다', () => {
+    const xml = `<?xml version="1.0" encoding="UTF-8"?>
+<response><header><resultCode>000</resultCode></header><body><items>
+<item><aptNm>가나아파트</aptNm><dealAmount>50,000</dealAmount><dealYear>2026</dealYear><dealMonth>6</dealMonth><dealDay>1</dealDay><floor>알수없음</floor><excluUseAr>-</excluUseAr></item>
+</items></body></response>`
+    const deal = parseMolitXml(xml)[0]
+    expect(deal.floor).toBeNull()
+    expect(deal.areaSqm).toBeNull()
+  })
 })
 
 describe('normalizeAptName / matchesComplex', () => {
@@ -91,6 +112,11 @@ describe('summarizeDeals', () => {
 
   it('거래가 없으면 모두 null/0', () => {
     expect(summarizeDeals([], 90000)).toEqual({ count: 0, avgPriceManwon: null, vsCurrentPct: null })
+  })
+
+  it('평균가가 0이면 vsCurrentPct는 null', () => {
+    const zeroDeals = [{ aptName: 'a', dealDate: '2026-06-01', floor: 1, areaSqm: 84, priceManwon: 0 }]
+    expect(summarizeDeals(zeroDeals, 90000).vsCurrentPct).toBeNull()
   })
 })
 
