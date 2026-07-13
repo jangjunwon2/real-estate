@@ -11,6 +11,7 @@ export interface AdvisorProfileFields {
   spouse_home_status: HomeStatus | null
   household_head: boolean
   subscription_account_years: number
+  disposal_planned: boolean
 }
 
 interface AdvisorProfileSectionProps {
@@ -81,6 +82,20 @@ export default function AdvisorProfileSection({ prefs, onChange }: AdvisorProfil
           </div>
         )}
       </div>
+
+      {/* 유주택 세대(합산 1주택)일 때 — 일시적 2주택 처분 조건 */}
+      {(prefs.self_home_status === 'one' && (prefs.buyer_type !== 'couple' || (prefs.spouse_home_status ?? 'none') === 'none')) ||
+       (prefs.self_home_status === 'none' && prefs.buyer_type === 'couple' && prefs.spouse_home_status === 'one') ? (
+        <button onClick={() => onChange('disposal_planned')(!prefs.disposal_planned)}
+          className={`w-full px-3 py-2.5 rounded-lg border text-sm text-left transition-colors ${
+            prefs.disposal_planned ? 'bg-indigo-600 text-white border-indigo-600' : 'border-gray-200 text-gray-600 hover:border-gray-400'
+          }`}>
+          <p className="font-medium">🔄 기존 주택 처분 예정 {prefs.disposal_planned ? '✓' : ''}</p>
+          <p className={`text-[11px] font-normal ${prefs.disposal_planned ? 'text-indigo-200' : 'text-gray-400'}`}>
+            일시적 2주택(처분 조건부) — 켜면 무주택에 준해 주담대·보금자리론 한도가 계산됩니다. 기한 내 미처분 시 대출 회수 불이익이 있어요.
+          </p>
+        </button>
+      ) : null}
 
       <div className="grid grid-cols-2 gap-4 items-end">
         <button onClick={() => onChange('household_head')(!prefs.household_head)}

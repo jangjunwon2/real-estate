@@ -6,6 +6,7 @@ import {
   type UserFinance,
   type ZoneType,
 } from '../koreanRealEstate'
+import { calcSubscriptionScore } from './subscriptionScore'
 import type { BuyerType, HomeStatus, MarriageStatus } from './types'
 
 export interface WhatIfInput {
@@ -17,6 +18,8 @@ export interface WhatIfInput {
   selfHomeStatus: HomeStatus
   spouseHomeStatus: HomeStatus | null
   incomeSelf: number         // 본인 연소득 (만원, 개별 입력 시에만 > 0)
+  subscriptionAccountYears?: number  // 청약통장 가입기간 (년)
+  householdHead?: boolean            // 세대주 여부
 }
 
 export interface WhatIfSuggestion {
@@ -160,6 +163,25 @@ export function buildWhatIfSuggestions(input: WhatIfInput): WhatIfSuggestion[] {
     })
   }
 
+  // ── 4.5. 기존 주택 처분 조건부 매수 — 이사 수요 1주택자의 유일한 규제지역 활로 ──
+  if (fin.ownedHomes === 1 && !fin.disposalPlanned && zone !== 'none') {
+    const variantMax = bestMaxPrice(selfFunds, { ...fin, disposalPlanned: true }, zone)
+    push({
+      id: 'disposal-condition',
+      icon: '🔄',
+      title: '기존 주택 처분 조건부 매수 (일시적 2주택)',
+      variantMax,
+      variantLabel: '처분 조건 약정 시',
+      conclusion: '이사 목적이라면 기존 주택 처분을 약정하고 주담대를 받을 수 있습니다',
+      reasons: [
+        '유주택자는 수도권·규제지역 주담대가 금지되지만, 일시적 2주택(처분 조건)은 예외로 무주택에 준해 심사됩니다',
+        '보금자리론도 처분 조건부로 신청 가능합니다',
+        '보통 신규 주택 취득 후 일정 기간(통상 2년 내) 기존 주택을 처분하는 조건입니다',
+      ],
+      caution: '기한 내 미처분 시 대출 회수·불이익이 있습니다. 위 정보 탭에서 "기존 주택 처분 예정"을 켜면 모든 계산에 반영됩니다',
+    })
+  }
+
   // ── 5. 생애최초 체크 확인 — 입력 누락 안내 ─────────────────────────────
   if (!fin.isFirstBuyer && fin.ownedHomes === 0) {
     const variantMax = bestMaxPrice(selfFunds, { ...fin, isFirstBuyer: true }, zone)
@@ -222,4 +244,139 @@ export function buildWhatIfSuggestions(input: WhatIfInput): WhatIfSuggestion[] {
   }
 
   return suggestions.sort((a, b) => b.deltaAmount - a.deltaAmount)
+}
+
+// ═══ 참고 안내 (구매력 변화는 없지만 알아야 하는 체크포인트) ═══════════════
+
+export interface AdvisoryNotice {
+  id: string
+  icon: string
+  title: string
+  tone: 'warn' | 'info'
+  body: string
+  points: string[]
+}
+
+// 증여세 공제 한도 (만원) — 상속세 및 증여세법 (2024.1.1 혼인·출산 증여공제 신설)
+const GIFT_EXEMPTION_BASIC = 5000       // 직계존속 10년 합산 공제
+const GIFT_EXEMPTION_MARRIAGE = 10000   // 혼인·출산 공제 (혼인신고일 전후 2년 / 자녀 출생 2년 내)
+const GIFT_TAX_BRACKET1 = 10000         // 과세표준 1억 이하 10%
+const GIFT_TAX_RATE1 = 0.10
+const GIFT_TAX_RATE2 = 0.20             // 1억 초과 ~ 5억 20%
+
+function estimateGiftTax(taxable: number): number {
+  if (taxable <= 0) return 0
+  if (taxable <= GIFT_TAX_BRACKET1) return Math.round(taxable * GIFT_TAX_RATE1)
+  return Math.round(GIFT_TAX_BRACKET1 * GIFT_TAX_RATE1 + (taxable - GIFT_TAX_BRACKET1) * GIFT_TAX_RATE2)
+}
+
+export function buildAdvisoryNotices(input: WhatIfInput): AdvisoryNotice[] {
+  const { finance: fin } = input
+  const notices: AdvisoryNotice[] = []
+  const isCouple = input.buyerType === 'couple'
+
+  // ── 가족 지원금 증여세 체크 ──────────────────────────────────────────────
+  if (fin.giftAmount > 0) {
+    const perPerson = GIFT_EXEMPTION_BASIC + (isCouple ? GIFT_EXEMPTION_MARRIAGE : 0)
+    const exemption = isCouple ? perPerson * 2 : perPerson
+    const taxable = fin.giftAmount - exemption
+    if (taxable > 0) {
+      const tax = estimateGiftTax(taxable)
+      notices.push({
+        id: 'gift-tax',
+        icon: '💸',
+        title: '가족 지원금 증여세 확인 필요',
+        tone: 'warn',
+        body: `지원 예정 ${fin.giftAmount.toLocaleString()}만원이 공제 한도(약 ${exemption.toLocaleString()}만원)를 초과합니다 — 예상 증여세 약 ${tax.toLocaleString()}만원`,
+        points: [
+          '직계존속 증여 공제: 10년 합산 5천만원',
+          ...(isCouple
+            ? ['혼인·출산 증여 공제: 추가 1억 (혼인신고일 전후 2년 이내 증여분)', '부부가 각자 양가에서 받으면 공제 한도가 2배로 늘어납니다']
+            : ['혼인 예정이라면 혼인·출산 공제(추가 1억)로 한도를 늘릴 수 있습니다']),
+          '차용증을 쓰는 방법도 있으나 실제 이자 지급·상환 증빙이 필요합니다 — 세무사 상담 권장',
+        ],
+      })
+    } else {
+      notices.push({
+        id: 'gift-tax',
+        icon: '✅',
+        title: '가족 지원금 — 증여 공제 한도 내',
+        tone: 'info',
+        body: `지원 예정 ${fin.giftAmount.toLocaleString()}만원은 공제 한도(약 ${exemption.toLocaleString()}만원) 이내로 증여세 부담이 없습니다`,
+        points: [
+          isCouple
+            ? '직계존속 5천만원 + 혼인·출산 공제 1억 — 부부 각자 적용 가정'
+            : '직계존속 10년 합산 5천만원 공제 기준',
+          '10년 내 다른 증여를 받았다면 합산되므로 이전 증여 이력을 확인하세요',
+        ],
+      })
+    }
+  }
+
+  // ── 청약 가점 전략 ───────────────────────────────────────────────────────
+  if (fin.ownedHomes === 0) {
+    const score = calcSubscriptionScore(
+      fin.noHomeYears,
+      fin.numChildren + (isCouple ? 1 : 0),  // 부양가족 = 자녀 + 배우자
+      input.subscriptionAccountYears ?? 0,
+    )
+    const specialSupplyEligible: string[] = []
+    if (fin.isNewlywed) specialSupplyEligible.push('신혼부부 특별공급 (민영 20%·공공 30% 물량)')
+    if (fin.isFirstBuyer) specialSupplyEligible.push('생애최초 특별공급 (민영 20%·공공 25% 물량)')
+
+    const highScore = score.total >= 50
+    notices.push({
+      id: 'subscription-strategy',
+      icon: '🎯',
+      title: `청약 가점 ${score.total}점 / 84점 — ${highScore ? '청약 병행 추천' : '특별공급·매매 중심 추천'}`,
+      tone: 'info',
+      body: highScore
+        ? '가점이 수도권 당첨권(50~60점대)에 근접해 있어, 매매와 청약을 병행할 만합니다'
+        : '일반공급 가점제 당첨은 어려운 점수대입니다 — 특별공급 자격이나 추첨제 물량, 매매를 우선 검토하세요',
+      points: [
+        `무주택 기간 ${score.noHomeYearsScore}점 · 부양가족 ${score.dependentsScore}점 · 통장 가입기간 ${score.accountPeriodScore}점`,
+        ...(specialSupplyEligible.length > 0
+          ? [`특별공급 자격: ${specialSupplyEligible.join(', ')}`]
+          : ['현재 특별공급(신혼·생애최초) 자격이 없어 일반공급 가점 경쟁이 필요합니다']),
+        ...(input.householdHead === false
+          ? ['⚠ 투기과열지구 1순위 청약은 세대주만 가능합니다 — 세대주 변경을 검토하세요']
+          : []),
+        '자세한 명의·매수 방식 비교는 구매 전략 추천(/advisor)에서 확인하세요',
+      ],
+    })
+  }
+
+  return notices
+}
+
+// ═══ 매물별 전략 — 특정 매물 가격을 기준으로 실행 가능 여부 판단 ═══════════
+
+export interface PropertyWhatIf {
+  affordableNow: boolean
+  currentMax: number         // 현재 조건 최대 구매가 (만원)
+  gap: number                // price - currentMax (부족액, 만원 — 음수면 여유)
+  unlocks: WhatIfSuggestion[]    // 이 변경으로 해당 매물이 구매 가능해지는 전략
+  improvements: WhatIfSuggestion[] // 구매 가능까지는 아니지만 부족액을 줄이는 전략
+}
+
+// 지역이 고정된 매물에는 '다른 지역으로 넓히기' 카드가 무의미하다
+const REGION_CARD_IDS = new Set(['region-widen', 'region-metro'])
+
+export function buildPropertyWhatIf(price: number, input: WhatIfInput): PropertyWhatIf | null {
+  if (price <= 0 || input.finance.income <= 0 || input.selfFunds <= 0) return null
+
+  const currentMax = bestMaxPrice(input.selfFunds, input.finance, input.zone)
+  const gap = price - currentMax
+  if (gap <= 0) {
+    return { affordableNow: true, currentMax, gap, unlocks: [], improvements: [] }
+  }
+
+  const strategies = buildWhatIfSuggestions(input).filter(s => !REGION_CARD_IDS.has(s.id))
+  return {
+    affordableNow: false,
+    currentMax,
+    gap,
+    unlocks: strategies.filter(s => s.variantMax >= price),
+    improvements: strategies.filter(s => s.variantMax < price),
+  }
 }

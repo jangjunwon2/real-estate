@@ -19,14 +19,37 @@ REGULATION_CONTEXT = (
 )
 
 
+def _format_user_context(user_region: str, user_budget_max: int, profile: dict | None) -> str:
+    """사용자 프로필을 프롬프트용 한 줄 요약으로 변환 — 없으면 지역·예산만."""
+    base = f'관심지역={user_region}, 예산최대={user_budget_max}만원'
+    if not profile:
+        return base
+    tags = []
+    if profile.get('is_newlywed'):
+        tags.append('신혼부부(혼인 7년 이내)')
+    if profile.get('marriage_status') in ('planned', 'undetermined'):
+        tags.append('혼인신고 전 커플')
+    if profile.get('is_first_buyer'):
+        tags.append('생애최초')
+    owned = profile.get('owned_homes', 0)
+    tags.append(f'보유주택 {owned}채' if owned else '무주택')
+    if profile.get('num_children', 0) > 0:
+        tags.append(f"자녀 {profile['num_children']}명(신생아특례 가능성)")
+    if profile.get('income'):
+        tags.append(f"연소득 {profile['income']}만원")
+    return f'{base}, {", ".join(tags)}'
+
+
 async def score_properties(
     raw_list: list[dict],
     anthropic_api_key: str,
     user_region: str = '',
     user_budget_max: int = 60000,
+    user_profile: dict | None = None,
 ) -> list[dict]:
     client = anthropic.AsyncAnthropic(api_key=anthropic_api_key)
     sem = asyncio.Semaphore(3)
+    user_context = _format_user_context(user_region, user_budget_max, user_profile)
 
     async def score_one(prop: dict) -> dict | None:
         async with sem:
@@ -37,10 +60,12 @@ async def score_properties(
                         f'부동산 매물 분석 후 JSON만 응답 (다른 텍스트 금지):\n'
                         f'{REGULATION_CONTEXT}'
                         f'매물: {json.dumps(prop, ensure_ascii=False)}\n'
-                        f'사용자: 관심지역={user_region}, 예산최대={user_budget_max}만원\n'
+                        f'사용자: {user_context}\n'
                         f'regulatory_score는 위 규제가 이 매물 지역·가격에 미치는 영향'
                         f'(대출한도 축소, 토허제 실거주 의무, 취득세 중과 등)을 근거로 산정하고, '
-                        f'personalized_reason·cons에도 해당되는 규제 영향을 구체적으로 언급할 것.\n'
+                        f'personalized_reason·cons에도 해당되는 규제 영향을 구체적으로 언급할 것. '
+                        f'personalized_reason은 사용자 상태(신혼·생애최초·보유주택·자녀)에 맞는 '
+                        f'대출·특공 전략을 1줄로 제시할 것 (예: 신혼특례 대출 가능, 유주택자 주담대 불가 등).\n'
                         f'응답형식: {{"price_score":정수0-20,"location_score":정수0-25,'
                         f'"complex_score":정수0-20,"demand_score":정수0-20,'
                         f'"regulatory_score":정수0-15,'

@@ -8,11 +8,12 @@ import EligibilityBadge from '@/components/properties/EligibilityBadge'
 import SubscriptionCountdown from '@/components/properties/SubscriptionCountdown'
 import KakaoMapWrapper from '@/components/properties/KakaoMapWrapper'
 import LoanEligibilityPanel from '@/components/properties/LoanEligibilityPanel'
+import PropertyStrategyPanel from '@/components/properties/PropertyStrategyPanel'
 import TotalCostCard from '@/components/properties/TotalCostCard'
 import RegulationNotice from '@/components/properties/RegulationNotice'
 import SubscriptionScoreCard from '@/components/properties/SubscriptionScoreCard'
 import LocationEnvironmentCard from '@/components/properties/LocationEnvironmentCard'
-import { calcLoanProducts, type UserFinance } from '@/lib/koreanRealEstate'
+import { calcLoanProducts, detectZoneType, type UserFinance } from '@/lib/koreanRealEstate'
 import FavoriteButton from '@/components/FavoriteButton'
 import ScoreRing from '@/components/properties/ScoreRing'
 import PriceComparisonSection, { type SameComplexProp, type NearbyProp } from '@/components/properties/PriceComparisonSection'
@@ -166,6 +167,7 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
     noHomeYears: prefs.no_home_years ?? 0,
     numChildren: prefs.num_children ?? 0,
     ownedHomes,
+    disposalPlanned: prefs.disposal_planned ?? false,
   } : null
 
   const price = property.price ?? 0
@@ -304,6 +306,25 @@ export default async function PropertyDetailPage({ params }: { params: Promise<{
 
       {/* 대출 상세 */}
       {price > 0 && <LoanEligibilityPanel price={price} finance={finance} sigungu={sigungu} />}
+
+      {/* 이 매물 기준 What-if 전략 — 조건 변경 시 구매 가능 여부 */}
+      {price > 0 && finance && prefs && (
+        <PropertyStrategyPanel
+          price={price}
+          input={{
+            finance,
+            selfFunds,
+            zone: detectZoneType(sigungu),
+            buyerType: prefs.buyer_type ?? 'solo',
+            marriageStatus: prefs.marriage_status ?? null,
+            selfHomeStatus: prefs.self_home_status ?? 'none',
+            spouseHomeStatus: prefs.spouse_home_status ?? null,
+            incomeSelf: prefs.income_mode === 'individual' ? (prefs.income_self ?? 0) : 0,
+            subscriptionAccountYears: prefs.subscription_account_years ?? 0,
+            householdHead: prefs.household_head ?? true,
+          }}
+        />
+      )}
 
       {/* 총 비용 */}
       {price > 0 && (

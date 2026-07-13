@@ -68,9 +68,11 @@ async def process_properties(config, backend: BackendClient, run_id: str) -> lis
                 })
     if not all_props:
         return []
+    user_profile = await backend.get_user_profile()
     scored = await score_properties(
         all_props, config.anthropic_api_key,
         config.user_region, config.user_budget_max,
+        user_profile=user_profile,
     )
     try:
         await backend.ingest_properties(run_id=run_id, properties=scored)

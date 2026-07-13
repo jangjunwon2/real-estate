@@ -77,6 +77,18 @@ export interface UserFinance {
   noHomeYears: number
   numChildren: number
   ownedHomes: number          // 세대(본인+배우자) 보유 주택 수 — 0이면 무주택
+  disposalPlanned?: boolean   // 기존 주택 처분 예정 (일시적 2주택) — 1주택일 때만 예외 인정, 기본 false
+}
+
+// 일시적 2주택 처분 조건: 1주택자가 기존 주택 처분을 약정하면 무주택에 준해 심사
+// (2주택 이상은 처분해도 다주택이므로 예외 없음)
+function effectiveOwnedHomes(fin: UserFinance): number {
+  return fin.ownedHomes === 1 && fin.disposalPlanned ? 0 : fin.ownedHomes
+}
+
+// 생애최초는 '평생 무주택'이 요건 — 처분조건부 1주택자는 해당되지 않으므로 원본 보유 수로 판정
+function effectiveFirstBuyer(fin: UserFinance): boolean {
+  return fin.isFirstBuyer && fin.ownedHomes === 0
 }
 
 export interface LoanProduct {
@@ -290,7 +302,9 @@ export function calcAffordableScenarios(
       ltvRate: bg.conditions.ltv, loanCap: bg.conditions.maxLoan, priceCap: bg.conditions.maxPrice,
       check: () => {
         const r: string[] = []
-        if (fin.ownedHomes > 0) r.push('무주택 요건 미충족 (일시적 2주택 처분 조건은 예외)')
+        if (fin.ownedHomes > 0 && !(fin.ownedHomes === 1 && fin.disposalPlanned)) {
+          r.push('무주택 요건 미충족 (일시적 2주택 처분 조건은 예외)')
+        }
         const lim = fin.isNewlywed ? bg.conditions.maxIncomeNewlywed : bg.conditions.maxIncomeGeneral
         if (fin.income > lim) r.push(`소득 초과 (${fin.income.toLocaleString()}만원 > ${lim.toLocaleString()}만원)`)
         const netAsset = fin.assets + fin.depositToRecover + fin.giftAmount
@@ -314,9 +328,11 @@ export function calcAffordableScenarios(
   })
 
   // 일반 주담대 — 관심 지역의 규제 여부에 따라 LTV·절대한도·스트레스DSR이 모두 달라진다
+  const effHomes = effectiveOwnedHomes(fin)
+  const isFB = effectiveFirstBuyer(fin)
   const genReasons = fin.income === 0 ? ['소득 정보 미입력'] : []
-  // 유주택자 추가 구입: 수도권·규제지역 주담대 금지 (2025.6.27 대책)
-  if (fin.ownedHomes >= 1 && zone !== 'none') {
+  // 유주택자 추가 구입: 수도권·규제지역 주담대 금지 (2025.6.27 대책) — 처분조건부 1주택은 예외
+  if (effHomes >= 1 && zone !== 'none') {
     genReasons.push('유주택자 수도권·규제지역 추가 구입 주담대 금지 (일시적 2주택 처분 조건 등 예외)')
   }
   const genEligible = genReasons.length === 0
@@ -333,7 +349,7 @@ export function calcAffordableScenarios(
     })
   } else {
     const dsrGeneral = dsrMaxLoan(fin.income, fin.existingLoanPayment, 5.0, zone)
-    const { maxPrice, ltvUsed } = calcGeneralAffordablePrice(selfFunds, dsrGeneral, zone, fin.isFirstBuyer, fin.ownedHomes)
+    const { maxPrice, ltvUsed } = calcGeneralAffordablePrice(selfFunds, dsrGeneral, zone, isFB, effHomes)
     const loanAmount = Math.max(0, maxPrice - selfFunds)
     const monthly = calcMonthlyPayment(loanAmount, 5.0)
     results.push({
@@ -346,6 +362,31 @@ export function calcAffordableScenarios(
   }
 
   return results
+}
+
+// ─── 금리 시뮬레이션 — 일반 주담대를 임의 금리로 계산 ─────────────────────
+export interface RateScenario {
+  maxPrice: number
+  loanAmount: number
+  monthlyPayment: number
+  blocked: boolean
+}
+
+export function calcGeneralMortgageAtRate(
+  selfFunds: number,
+  fin: UserFinance,
+  zone: ZoneType,
+  ratePct: number,
+): RateScenario {
+  const effHomes = effectiveOwnedHomes(fin)
+  const isFB = effectiveFirstBuyer(fin)
+  if (fin.income <= 0 || selfFunds <= 0 || (effHomes >= 1 && zone !== 'none')) {
+    return { maxPrice: 0, loanAmount: 0, monthlyPayment: 0, blocked: true }
+  }
+  const dsrMax = dsrMaxLoan(fin.income, fin.existingLoanPayment, ratePct, zone)
+  const { maxPrice } = calcGeneralAffordablePrice(selfFunds, dsrMax, zone, isFB, effHomes)
+  const loanAmount = Math.max(0, maxPrice - selfFunds)
+  return { maxPrice, loanAmount, monthlyPayment: calcMonthlyPayment(loanAmount, ratePct), blocked: false }
 }
 
 // ─── 무주택 기간 (청약 가점용) ────────────────────────────────────────────
@@ -362,7 +403,9 @@ export function calcLoanProducts(
 ): LoanProduct[] {
   const zone = detectZoneType(sigungu)
   const netAsset = fin.assets + fin.depositToRecover + fin.giftAmount
-  const absCap = generalLoanCap(price, zone, fin.isFirstBuyer && fin.ownedHomes === 0)
+  const effHomes = effectiveOwnedHomes(fin)
+  const isFB = effectiveFirstBuyer(fin)
+  const absCap = generalLoanCap(price, zone, isFB)
 
   const d1 = LOAN_PRODUCTS.didimdolSpecial
   const d2 = LOAN_PRODUCTS.didimdolGeneral
@@ -387,7 +430,7 @@ export function calcLoanProducts(
   const dsr2 = dsrMaxLoan(fin.income, fin.existingLoanPayment, d2.rates.representative, zone)
 
   // 신생아 특례
-  const ltvNewborn = fin.isFirstBuyer ? nb.conditions.ltvFirstBuyer : nb.conditions.ltvGeneral
+  const ltvNewborn = isFB ? nb.conditions.ltvFirstBuyer : nb.conditions.ltvGeneral
   const newbornReasons: string[] = []
   if (fin.ownedHomes > 0)    newbornReasons.push('무주택 요건 미충족 (보유 주택 있음)')
   if (fin.numChildren < 1)   newbornReasons.push('자녀 정보 미입력 (2023.1.1 이후 출생)')
@@ -400,16 +443,18 @@ export function calcLoanProducts(
   const bogumRate = fin.isNewlywed ? bg.rates.newlywed.representative : bg.rates.general.representative
   const bogumRateRange = fin.isNewlywed ? bg.rates.newlywed.range : bg.rates.general.range
   const b1Reasons: string[] = []
-  if (fin.ownedHomes > 0) b1Reasons.push('무주택 요건 미충족 (일시적 2주택 처분 조건은 예외)')
+  if (fin.ownedHomes > 0 && !(fin.ownedHomes === 1 && fin.disposalPlanned)) {
+    b1Reasons.push('무주택 요건 미충족 (일시적 2주택 처분 조건은 예외)')
+  }
   if (fin.income > bogumIncomeLimit) b1Reasons.push(`소득 초과 (${fin.income.toLocaleString()}만원 > ${bogumIncomeLimit.toLocaleString()}만원)`)
   if (price > bg.conditions.maxPrice) b1Reasons.push(`주택가격 초과 (6억 한도)`)
   if (netAsset > bg.conditions.maxNetAsset) b1Reasons.push(`순자산 초과 (4.69억 한도)`)
   const dsr3 = dsrMaxLoan(fin.income, fin.existingLoanPayment, bogumRate, zone)
 
-  // 일반 주담대 — zone별 LTV + 절대금액 한도 + 스트레스DSR + 유주택자 규제
-  const genLtv = generalMortgageLtv(zone, price, fin.isFirstBuyer, fin.ownedHomes)
+  // 일반 주담대 — zone별 LTV + 절대금액 한도 + 스트레스DSR + 유주택자 규제 (처분조건부 예외 포함)
+  const genLtv = generalMortgageLtv(zone, price, isFB, effHomes)
   const genReasons: string[] = fin.income === 0 ? ['소득 정보 미입력'] : []
-  if (fin.ownedHomes >= 1 && zone !== 'none') {
+  if (effHomes >= 1 && zone !== 'none') {
     genReasons.push('유주택자 수도권·규제지역 추가 구입 주담대 금지 (일시적 2주택 처분 조건 등 예외)')
   }
   const dsr5 = dsrMaxLoan(fin.income, fin.existingLoanPayment, 5.0, zone)

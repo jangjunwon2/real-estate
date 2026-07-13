@@ -1,5 +1,10 @@
 import { describe, it, expect } from 'vitest'
-import { buildWhatIfSuggestions, type WhatIfInput } from '../lib/advisor/whatIfAdvisor'
+import {
+  buildWhatIfSuggestions,
+  buildAdvisoryNotices,
+  buildPropertyWhatIf,
+  type WhatIfInput,
+} from '../lib/advisor/whatIfAdvisor'
 import type { UserFinance } from '../lib/koreanRealEstate'
 
 const baseFinance: UserFinance = {
@@ -131,5 +136,102 @@ describe('buildWhatIfSuggestions', () => {
     for (let i = 1; i < suggestions.length; i++) {
       expect(suggestions[i - 1].deltaAmount).toBeGreaterThanOrEqual(suggestions[i].deltaAmount)
     }
+  })
+
+  it('suggests 처분조건부 매수 for 1주택 mover in 규제지역', () => {
+    const input: WhatIfInput = {
+      ...baseInput,
+      selfHomeStatus: 'one',
+      finance: { ...baseFinance, isFirstBuyer: false, isNewlywed: false, ownedHomes: 1 },
+      buyerType: 'solo',
+    }
+    const s = buildWhatIfSuggestions(input).find(x => x.id === 'disposal-condition')
+    expect(s).toBeDefined()
+    expect(s!.deltaAmount).toBeGreaterThan(0)
+  })
+
+  it('does not suggest 처분조건 when already enabled or 다주택', () => {
+    const enabled: WhatIfInput = {
+      ...baseInput,
+      finance: { ...baseFinance, ownedHomes: 1, disposalPlanned: true },
+    }
+    expect(buildWhatIfSuggestions(enabled).find(x => x.id === 'disposal-condition')).toBeUndefined()
+    const multi: WhatIfInput = { ...baseInput, finance: { ...baseFinance, ownedHomes: 2 } }
+    expect(buildWhatIfSuggestions(multi).find(x => x.id === 'disposal-condition')).toBeUndefined()
+  })
+})
+
+// ─── buildAdvisoryNotices ─────────────────────────────────────────────────────
+
+describe('buildAdvisoryNotices', () => {
+  it('warns when gift exceeds exemption (solo: 5천만)', () => {
+    const input: WhatIfInput = {
+      ...baseInput,
+      buyerType: 'solo',
+      finance: { ...baseFinance, giftAmount: 20000 },
+    }
+    const n = buildAdvisoryNotices(input).find(x => x.id === 'gift-tax')
+    expect(n).toBeDefined()
+    expect(n!.tone).toBe('warn')
+  })
+
+  it('info tone when gift is within couple exemption (3억)', () => {
+    const input: WhatIfInput = { ...baseInput, finance: { ...baseFinance, giftAmount: 20000 } }
+    const n = buildAdvisoryNotices(input).find(x => x.id === 'gift-tax')
+    expect(n).toBeDefined()
+    expect(n!.tone).toBe('info')
+  })
+
+  it('no gift notice when giftAmount is 0', () => {
+    expect(buildAdvisoryNotices(baseInput).find(x => x.id === 'gift-tax')).toBeUndefined()
+  })
+
+  it('subscription notice for 무주택 user includes score', () => {
+    const n = buildAdvisoryNotices(baseInput).find(x => x.id === 'subscription-strategy')
+    expect(n).toBeDefined()
+    expect(n!.title).toContain('점')
+  })
+
+  it('no subscription notice for 유주택 user', () => {
+    const input: WhatIfInput = { ...baseInput, finance: { ...baseFinance, ownedHomes: 1 } }
+    expect(buildAdvisoryNotices(input).find(x => x.id === 'subscription-strategy')).toBeUndefined()
+  })
+
+  it('warns about 세대주 when not household head', () => {
+    const n = buildAdvisoryNotices({ ...baseInput, householdHead: false })
+      .find(x => x.id === 'subscription-strategy')
+    expect(n!.points.join()).toContain('세대주')
+  })
+})
+
+// ─── buildPropertyWhatIf ──────────────────────────────────────────────────────
+
+describe('buildPropertyWhatIf', () => {
+  it('returns affordableNow when price is within current max', () => {
+    const r = buildPropertyWhatIf(30000, baseInput)
+    expect(r).not.toBeNull()
+    expect(r!.affordableNow).toBe(true)
+  })
+
+  it('finds unlocking strategies for an out-of-reach property', () => {
+    // 기존 대출로 한도가 깎인 사용자 — 정리하면 닿는 가격대의 매물
+    const input: WhatIfInput = { ...baseInput, finance: { ...baseFinance, existingLoanPayment: 150 } }
+    const constrained = buildPropertyWhatIf(999999, input) // 어떤 전략으로도 불가능한 가격
+    expect(constrained!.affordableNow).toBe(false)
+    expect(constrained!.unlocks).toHaveLength(0)
+    expect(constrained!.gap).toBeGreaterThan(0)
+  })
+
+  it('excludes region cards (매물 지역은 고정)', () => {
+    const input: WhatIfInput = { ...baseInput, finance: { ...baseFinance, existingLoanPayment: 150 } }
+    const r = buildPropertyWhatIf(200000, input)
+    const all = [...r!.unlocks, ...r!.improvements]
+    expect(all.find(s => s.id === 'region-widen')).toBeUndefined()
+    expect(all.find(s => s.id === 'region-metro')).toBeUndefined()
+  })
+
+  it('returns null without income or price', () => {
+    expect(buildPropertyWhatIf(0, baseInput)).toBeNull()
+    expect(buildPropertyWhatIf(50000, { ...baseInput, finance: { ...baseFinance, income: 0 } })).toBeNull()
   })
 })

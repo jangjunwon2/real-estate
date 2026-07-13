@@ -1,14 +1,39 @@
 'use client'
 import { useMemo } from 'react'
-import { buildWhatIfSuggestions, type WhatIfInput } from '@/lib/advisor/whatIfAdvisor'
+import { buildWhatIfSuggestions, buildAdvisoryNotices, type WhatIfInput, type AdvisoryNotice } from '@/lib/advisor/whatIfAdvisor'
 import { formatPrice } from '@/lib/formatPrice'
 
 interface StrategySuggestionsProps {
   input: WhatIfInput
 }
 
+function NoticeCard({ notice }: { notice: AdvisoryNotice }) {
+  const isWarn = notice.tone === 'warn'
+  return (
+    <div className={`rounded-xl border p-4 space-y-2 ${
+      isWarn ? 'border-amber-200 bg-amber-50/50' : 'border-gray-200 bg-gray-50/50'
+    }`}>
+      <div className="flex items-start gap-2">
+        <span className="text-lg shrink-0">{notice.icon}</span>
+        <div>
+          <p className="text-sm font-semibold text-gray-800 leading-snug">{notice.title}</p>
+          <p className={`text-xs mt-0.5 ${isWarn ? 'text-amber-800' : 'text-gray-600'}`}>{notice.body}</p>
+        </div>
+      </div>
+      <ul className="space-y-1">
+        {notice.points.map((p, i) => (
+          <li key={i} className="text-xs text-gray-600 flex gap-1.5 leading-relaxed">
+            <span className={`shrink-0 ${isWarn ? 'text-amber-400' : 'text-gray-400'}`}>·</span><span>{p}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
 export default function StrategySuggestions({ input }: StrategySuggestionsProps) {
   const suggestions = useMemo(() => buildWhatIfSuggestions(input), [input])
+  const notices = useMemo(() => buildAdvisoryNotices(input), [input])
 
   // 소득·자기자본 미입력이면 시뮬레이션 불가 — 섹션 자체를 숨김 (부모에서도 가드하지만 이중 안전)
   if (input.finance.income <= 0 || input.selfFunds <= 0) return null
@@ -27,6 +52,7 @@ export default function StrategySuggestions({ input }: StrategySuggestionsProps)
             </p>
           </div>
         </div>
+        {notices.map(n => <NoticeCard key={n.id} notice={n} />)}
       </section>
     )
   }
@@ -86,6 +112,13 @@ export default function StrategySuggestions({ input }: StrategySuggestionsProps)
           </div>
         ))}
       </div>
+
+      {notices.length > 0 && (
+        <div className="space-y-3 pt-1">
+          <h3 className="text-sm font-semibold text-gray-700">체크포인트</h3>
+          {notices.map(n => <NoticeCard key={n.id} notice={n} />)}
+        </div>
+      )}
 
       <p className="text-[11px] text-gray-400">
         ※ 최대 구매가는 자기자본 + 적격 대출 상품 중 가장 유리한 상품 기준. 참고용이며 실제 세무·법무 판단은 전문가 상담을 권장합니다.

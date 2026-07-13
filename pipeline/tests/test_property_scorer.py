@@ -74,3 +74,48 @@ async def test_score_properties_empty_input():
         result = await score_properties([], 'test-key')
 
     assert result == []
+
+
+def test_format_user_context_without_profile():
+    from processors.property_scorer import _format_user_context
+    ctx = _format_user_context('서울', 60000, None)
+    assert '서울' in ctx and '60000' in ctx
+
+
+def test_format_user_context_with_profile():
+    from processors.property_scorer import _format_user_context
+    profile = {
+        'is_newlywed': True,
+        'is_first_buyer': True,
+        'marriage_status': 'planned',
+        'owned_homes': 0,
+        'num_children': 1,
+        'income': 8000,
+    }
+    ctx = _format_user_context('서울', 60000, profile)
+    assert '신혼부부' in ctx
+    assert '혼인신고 전' in ctx
+    assert '생애최초' in ctx
+    assert '무주택' in ctx
+    assert '자녀 1명' in ctx
+
+
+def test_format_user_context_owner():
+    from processors.property_scorer import _format_user_context
+    ctx = _format_user_context('서울', 60000, {'owned_homes': 2})
+    assert '보유주택 2채' in ctx
+
+
+@pytest.mark.asyncio
+async def test_score_properties_injects_profile_into_prompt():
+    props = [{'title': '마포 아파트', 'price': 50000}]
+    mock_client = make_mock_anthropic(json.dumps(MOCK_SCORE))
+
+    with patch('anthropic.AsyncAnthropic', return_value=mock_client):
+        from processors.property_scorer import score_properties
+        await score_properties(props, 'test-key', '서울', 60000,
+                               user_profile={'is_newlywed': True, 'owned_homes': 0})
+
+    prompt = mock_client.messages.create.call_args.kwargs['messages'][0]['content']
+    assert '신혼부부' in prompt
+    assert '무주택' in prompt

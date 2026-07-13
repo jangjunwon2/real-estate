@@ -11,6 +11,7 @@ import NumInput from '@/components/settings/NumInput'
 import EokManInput from '@/components/settings/EokManInput'
 import AdvisorProfileSection, { type AdvisorProfileFields } from '@/components/settings/AdvisorProfileSection'
 import StrategySuggestions from '@/components/settings/StrategySuggestions'
+import RateSimulator from '@/components/settings/RateSimulator'
 import type { WhatIfInput } from '@/lib/advisor/whatIfAdvisor'
 
 const CURRENT_YEAR = new Date().getFullYear()
@@ -61,6 +62,7 @@ interface Prefs {
   spouse_home_status: 'none' | 'one' | 'multiple' | null
   household_head: boolean
   subscription_account_years: number
+  disposal_planned: boolean
 }
 
 const DEFAULT_PREFS: Prefs = {
@@ -89,6 +91,7 @@ const DEFAULT_PREFS: Prefs = {
   spouse_home_status: null,
   household_head: true,
   subscription_account_years: 0,
+  disposal_planned: false,
 }
 
 function priceLabel(p: number): string {
@@ -206,10 +209,11 @@ export default function SettingsPage() {
     noHomeYears: prefs.no_home_years,
     numChildren: prefs.num_children,
     ownedHomes,
+    disposalPlanned: prefs.disposal_planned,
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }), [prefs.monthly_income, prefs.assets, prefs.deposit_to_recover, prefs.gift_amount,
        prefs.existing_loan_payment, prefs.is_newlywed, prefs.is_first_buyer,
-       prefs.no_home_years, prefs.num_children, ownedHomes])
+       prefs.no_home_years, prefs.num_children, ownedHomes, prefs.disposal_planned])
 
   const zone = useMemo(() => detectStrictestZone(prefs.regions), [prefs.regions])
 
@@ -231,8 +235,11 @@ export default function SettingsPage() {
     selfHomeStatus: prefs.self_home_status,
     spouseHomeStatus: prefs.spouse_home_status,
     incomeSelf: prefs.income_mode === 'individual' ? prefs.income_self : 0,
+    subscriptionAccountYears: prefs.subscription_account_years,
+    householdHead: prefs.household_head,
   }), [finance, selfFunds, zone, prefs.buyer_type, prefs.marriage_status,
-       prefs.self_home_status, prefs.spouse_home_status, prefs.income_mode, prefs.income_self])
+       prefs.self_home_status, prefs.spouse_home_status, prefs.income_mode, prefs.income_self,
+       prefs.subscription_account_years, prefs.household_head])
 
   const save = async () => {
     setSaving(true); setSaveError(false)
@@ -589,6 +596,11 @@ export default function SettingsPage() {
       {/* ══ 3.5. 전략 추천 (What-if 시뮬레이션) ═══════════════════════════ */}
       {selfFunds > 0 && prefs.monthly_income > 0 && (
         <StrategySuggestions input={whatIfInput} />
+      )}
+
+      {/* ══ 3.6. 금리 시뮬레이션 ══════════════════════════════════════════ */}
+      {selfFunds > 0 && prefs.monthly_income > 0 && (
+        <RateSimulator finance={finance} selfFunds={selfFunds} zone={zone} />
       )}
 
       {/* ══ 4. 관심 지역 ════════════════════════════════════════════════ */}

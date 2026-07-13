@@ -31,6 +31,7 @@ const DEFAULT_PREFS = {
   spouse_home_status: null as 'none' | 'one' | 'multiple' | null,
   household_head: true,
   subscription_account_years: 0,
+  disposal_planned: false,
 }
 
 async function getUser() {
@@ -73,7 +74,7 @@ export async function POST(req: NextRequest) {
   const base = { ...DEFAULT_PREFS, ...(existing ?? {}) }
   const has = (key: string) => Object.prototype.hasOwnProperty.call(body, key)
 
-  const { error } = await db.from('user_preferences').upsert({
+  const payload: Record<string, unknown> = {
     user_id: user.id,
     regions: has('regions') ? body.regions : base.regions,
     budget_min: has('budget_min') ? Number(body.budget_min) || 0 : base.budget_min,
@@ -100,8 +101,19 @@ export async function POST(req: NextRequest) {
     spouse_home_status: has('spouse_home_status') ? body.spouse_home_status : base.spouse_home_status,
     household_head: has('household_head') ? Boolean(body.household_head) : base.household_head,
     subscription_account_years: has('subscription_account_years') ? Number(body.subscription_account_years) || 0 : base.subscription_account_years,
+    disposal_planned: has('disposal_planned') ? Boolean(body.disposal_planned) : base.disposal_planned,
     updated_at: new Date().toISOString(),
-  }, { onConflict: 'user_id' })
+  }
+
+  let { error } = await db.from('user_preferences').upsert(payload, { onConflict: 'user_id' })
+
+  // 마이그레이션(014_disposal_planned)이 아직 적용되지 않은 DB 보호:
+  // 신규 컬럼 미존재 오류면 해당 필드를 제외하고 재시도해 저장 자체는 성공시킨다
+  if (error && error.message.includes('disposal_planned')) {
+    logError('preferences/POST', new Error('disposal_planned 컬럼 없음 — 014 마이그레이션 적용 필요. 필드 제외 후 재시도'))
+    delete payload.disposal_planned
+    ;({ error } = await db.from('user_preferences').upsert(payload, { onConflict: 'user_id' }))
+  }
 
   if (error) {
     logError('preferences/POST', error)

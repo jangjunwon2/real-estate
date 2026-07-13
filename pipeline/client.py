@@ -14,6 +14,13 @@ class BackendClient:
             'Content-Type': 'application/json',
         }
 
+    async def _get(self, path: str) -> dict:
+        url = f'{self.base_url}{path}'
+        async with httpx.AsyncClient(timeout=30) as client:
+            res = await client.get(url, headers=self.headers)
+            res.raise_for_status()
+            return res.json()
+
     async def _post(self, path: str, body: dict, retries: int = 3) -> dict:
         url = f'{self.base_url}{path}'
         for attempt in range(retries):
@@ -80,6 +87,15 @@ class BackendClient:
             'run_id': run_id,
             'properties': properties,
         })
+
+    async def get_user_profile(self) -> dict | None:
+        """매물 AI 점수 개인화용 사용자 프로필 — 실패해도 파이프라인은 계속 진행."""
+        try:
+            data = await self._get('/api/pipeline/profile')
+            return data.get('profile')
+        except Exception as e:
+            logger.warning(f'사용자 프로필 조회 실패 (개인화 없이 진행): {e}')
+            return None
 
     async def ingest_policy_proposals(self, proposals: list[dict]) -> dict:
         if not proposals:

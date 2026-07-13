@@ -5,6 +5,7 @@ import {
   calcMaxAffordablePrice,
   calcAcquisitionTax,
   calcBrokerFee,
+  calcGeneralMortgageAtRate,
   detectZoneType,
   detectStrictestZone,
   calcAffordableScenarios,
@@ -264,6 +265,35 @@ describe('calcAffordableScenarios', () => {
   })
 })
 
+// ─── calcGeneralMortgageAtRate (금리 시뮬레이션) ──────────────────────────────
+
+describe('calcGeneralMortgageAtRate', () => {
+  const fin: UserFinance = {
+    income: 10000, assets: 30000, depositToRecover: 0, giftAmount: 0,
+    existingLoanPayment: 0, isNewlywed: false, isFirstBuyer: false,
+    noHomeYears: 0, numChildren: 0, ownedHomes: 0,
+  }
+
+  it('higher rate lowers max price (DSR effect)', () => {
+    const low = calcGeneralMortgageAtRate(30000, fin, 'none', 3.5)
+    const high = calcGeneralMortgageAtRate(30000, fin, 'none', 7.0)
+    expect(low.blocked).toBe(false)
+    expect(high.maxPrice).toBeLessThan(low.maxPrice)
+  })
+
+  it('blocked for 유주택자 in 수도권', () => {
+    const owner = { ...fin, ownedHomes: 1 }
+    expect(calcGeneralMortgageAtRate(30000, owner, 'metro', 5.0).blocked).toBe(true)
+  })
+
+  it('not blocked for 처분조건부 1주택', () => {
+    const mover = { ...fin, ownedHomes: 1, disposalPlanned: true }
+    const r = calcGeneralMortgageAtRate(30000, mover, 'metro', 5.0)
+    expect(r.blocked).toBe(false)
+    expect(r.maxPrice).toBeGreaterThan(30000)
+  })
+})
+
 // ─── detectStrictestZone ────────────────────────────────────────────────────
 
 describe('detectStrictestZone', () => {
@@ -344,5 +374,26 @@ describe('calcLoanProducts', () => {
     const general = calcLoanProducts(140000, rich, '인천 연수구').find(p => p.id === 'general')
     expect(general?.eligible).toBe(true)
     expect(general!.calcLoan(140000)).toBeLessThanOrEqual(60000)
+  })
+
+  it('일시적 2주택 처분 조건 — 1주택자도 규제지역 주담대 가능 (무주택 준용)', () => {
+    const mover: UserFinance = { ...finance, isFirstBuyer: false, isNewlywed: false, ownedHomes: 1, disposalPlanned: true }
+    const general = calcLoanProducts(80000, mover, '서울 강남구').find(p => p.id === 'general')
+    expect(general?.eligible).toBe(true)
+    expect(general?.ltvRate).toBe(0.4) // 규제지역 일반 LTV (생애최초 아님)
+    const bogum = calcLoanProducts(50000, mover, '서울 강남구').find(p => p.id === 'bogumjari')
+    expect(bogum?.blockedReasons.join()).not.toContain('무주택')
+  })
+
+  it('처분 조건이어도 2주택 이상은 예외 불인정', () => {
+    const multi: UserFinance = { ...finance, isFirstBuyer: false, isNewlywed: false, ownedHomes: 2, disposalPlanned: true }
+    const general = calcLoanProducts(80000, multi, '서울 강남구').find(p => p.id === 'general')
+    expect(general?.eligible).toBe(false)
+  })
+
+  it('처분 조건이어도 생애최초 우대는 불인정 (평생 무주택 요건)', () => {
+    const mover: UserFinance = { ...finance, isFirstBuyer: true, ownedHomes: 1, disposalPlanned: true }
+    const general = calcLoanProducts(40000, mover, '서울 강남구').find(p => p.id === 'general')
+    expect(general?.ltvRate).toBe(0.4) // 생애최초 70%가 아닌 일반 40%
   })
 })
