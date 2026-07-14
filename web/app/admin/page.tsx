@@ -105,6 +105,7 @@ export default function AdminPage() {
   const [propertyStatus, setPropertyStatus] = useState<'active' | 'sold' | 'cancelled'>('active')
   const [proposals, setProposals] = useState<PolicyProposal[]>([])
   const [loading, setLoading] = useState(false)
+  const [syncing, setSyncing] = useState(false)
   const [actionId, setActionId] = useState<string | null>(null)
   const [error, setError] = useState('')
   const [tab, setTab] = useState<Tab>('runs')
@@ -161,6 +162,28 @@ export default function AdminPage() {
       if (res.ok) { alert('파이프라인 트리거 완료 (GitHub Actions 실행됨)'); setTimeout(fetchAll, 3000) }
       else alert('트리거 실패 — GITHUB_TOKEN/GITHUB_REPO 환경변수 확인')
     } finally { setLoading(false) }
+  }
+
+  const syncPrices = async () => {
+    setSyncing(true)
+    try {
+      const res = await fetch('/api/admin/price-sync', { method: 'POST' })
+      const json = await res.json().catch(() => ({}))
+      if (!res.ok) {
+        alert(`가격 동기화 실패 (${res.status}): ${json.error ?? '알 수 없는 오류'}`)
+        return
+      }
+      const lines = (json.changes ?? [])
+        .map((c: { title: string | null; before: number | null; after: number }) =>
+          `· ${c.title ?? '매물'}: ${c.before ?? '—'} → ${c.after}만원`)
+        .join('\n')
+      alert(
+        `실거래가 동기화 완료\n\n` +
+        `전체 ${json.total} / 갱신 ${json.updated} / 미매칭 ${json.unmatched} / ` +
+        `지역미지원 ${json.skipped} / 조회실패 ${json.failedRegions}\n\n${lines || '변경된 매물 없음'}`,
+      )
+      await fetchProperties()
+    } finally { setSyncing(false) }
   }
 
   const toggleHide = async (article: Article) => {
@@ -271,6 +294,13 @@ export default function AdminPage() {
               className="px-5 py-2 bg-indigo-600 text-white text-sm rounded hover:bg-indigo-700 disabled:opacity-50"
             >
               {loading ? '실행 중...' : '파이프라인 수동 실행'}
+            </button>
+            <button
+              onClick={syncPrices}
+              disabled={syncing}
+              className="px-5 py-2 bg-emerald-600 text-white text-sm rounded hover:bg-emerald-700 disabled:opacity-50"
+            >
+              {syncing ? '동기화 중...' : '실거래가 가격 동기화'}
             </button>
             {stats.pipeline.last_run_at && (
               <span className="text-xs text-gray-400">
